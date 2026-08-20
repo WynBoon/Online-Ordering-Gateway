@@ -1,0 +1,36 @@
+@page "/stores"
+@rendermode InteractiveServer
+@using Gateway.Application.Repositories
+@using Gateway.Domain.Tenancy
+@inject IStoreRepository StoreRepository
+
+<PageTitle>Stores</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h4">Stores</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/stores/new" StartIcon="@Icons.Material.Filled.Add">
+        Onboard store
+    </MudButton>
+</div>
+
+<MudTable Items="_stores" Hover="true">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>State</MudTh>
+        <MudTh>Timezone</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="State">@context.State</MudTd>
+        <MudTd DataLabel="Timezone">@context.Timezone</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Store> _stores = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stores = (await StoreRepository.GetAllAsync(CancellationToken.None)).ToList();
+    }
+}

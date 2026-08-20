@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gateway.Adapters.Gaap/Gateway.Adapters.Gaap.csproj" />
+    <Project Path="src/Gateway.Adapters.OrderHarmony/Gateway.Adapters.OrderHarmony.csproj" />
+    <Project Path="src/Gateway.Adapters.Pilot/Gateway.Adapters.Pilot.csproj" />
+    <Project Path="src/Gateway.Api/Gateway.Api.csproj" />
+    <Project Path="src/Gateway.Application/Gateway.Application.csproj" />
+    <Project Path="src/Gateway.Domain/Gateway.Domain.csproj" />
+    <Project Path="src/Gateway.Infrastructure/Gateway.Infrastructure.csproj" />
+    <Project Path="src/Gateway.Portal/Gateway.Portal.csproj" />
+    <Project Path="src/Gateway.Worker/Gateway.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gateway.Adapters.Gaap.Tests/Gateway.Adapters.Gaap.Tests.csproj" />
+    <Project Path="tests/Gateway.Adapters.Pilot.Tests/Gateway.Adapters.Pilot.Tests.csproj" />
+    <Project Path="tests/Gateway.Api.CertificationTests/Gateway.Api.CertificationTests.csproj" />
+    <Project Path="tests/Gateway.Application.Tests/Gateway.Application.Tests.csproj" />
+    <Project Path="tests/Gateway.Domain.Tests/Gateway.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

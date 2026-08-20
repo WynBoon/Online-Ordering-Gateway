@@ -1,0 +1,436 @@
+<title>Order Gateway Architecture</title>
+<style>
+  :root{
+    --bg:#EEF0EC; --surface:#F8F8F4; --surface-2:#E4E7DF;
+    --ink:#1B211E; --ink-soft:#4B534E; --line:#C9CEC6;
+    --steel:#2F5468; --amber:#9C5E1B; --teal:#146F62; --grey-signal:#7C837B;
+    --code-bg:#E4E7DF;
+    --font-display: ui-sans-serif, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-body: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141815; --surface:#1B211D; --surface-2:#232922;
+      --ink:#E9ECE6; --ink-soft:#AAB3AA; --line:#333B35;
+      --steel:#86AFC8; --amber:#D8974A; --teal:#49C7B2; --grey-signal:#7A827B;
+      --code-bg:#232922;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141815; --surface:#1B211D; --surface-2:#232922;
+    --ink:#E9ECE6; --ink-soft:#AAB3AA; --line:#333B35;
+    --steel:#86AFC8; --amber:#D8974A; --teal:#49C7B2; --grey-signal:#7A827B;
+    --code-bg:#232922;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{ color:var(--steel); }
+  ::selection{ background:var(--amber); color:var(--surface); }
+
+  .page{ max-width:920px; margin:0 auto; padding:56px 24px 96px; }
+  .prose{ max-width:700px; }
+
+  header.masthead{
+    border-top:3px solid var(--ink); border-bottom:1px solid var(--line);
+    padding:22px 0 20px; margin-bottom:36px;
+  }
+  .kicker{
+    font-family:var(--font-display); font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-soft); margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:800; letter-spacing:-.01em;
+    font-size:clamp(28px,4vw,42px); line-height:1.08; margin:0 0 14px;
+    text-wrap:balance;
+  }
+  .dek{ font-size:17px; color:var(--ink-soft); max-width:640px; margin:0 0 20px; }
+  .meta{
+    display:flex; flex-wrap:wrap; gap:22px; font-family:var(--font-mono);
+    font-size:12.5px; color:var(--ink-soft);
+  }
+  .meta b{ color:var(--ink); font-weight:600; }
+
+  h2{
+    font-family:var(--font-display); font-weight:700; font-size:23px;
+    letter-spacing:-.005em; margin:52px 0 6px; text-wrap:balance;
+  }
+  h2 .num{ color:var(--steel); font-variant-numeric:tabular-nums; margin-right:10px; }
+  h3{ font-family:var(--font-display); font-weight:700; font-size:16.5px; margin:26px 0 8px; }
+  p{ margin:0 0 14px; }
+  .lede{ font-size:15.5px; color:var(--ink-soft); margin:0 0 24px; }
+  ul,ol{ padding-left:22px; margin:0 0 16px; }
+  li{ margin-bottom:6px; }
+  code, .mono{ font-family:var(--font-mono); font-size:.86em; }
+  code{
+    background:var(--code-bg); border:1px solid var(--line); border-radius:3px;
+    padding:.05em .35em;
+  }
+
+  .callout{
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--amber);
+    border-radius:4px; padding:16px 18px; margin:20px 0; font-size:15px;
+  }
+  .callout .label{
+    font-family:var(--font-display); font-weight:700; font-size:11.5px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:6px;
+  }
+
+  .scrollbox{ overflow-x:auto; margin:22px 0; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+  table{ border-collapse:collapse; width:100%; min-width:760px; font-size:13.8px; }
+  thead th{
+    font-family:var(--font-display); text-transform:uppercase; letter-spacing:.06em;
+    font-size:11px; text-align:left; color:var(--ink-soft); border-bottom:1px solid var(--line);
+    padding:10px 14px; background:var(--surface-2); white-space:nowrap;
+  }
+  tbody td{ padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.row-label{ font-family:var(--font-display); font-weight:700; white-space:nowrap; }
+  .sig-yes{ color:var(--teal); font-weight:700; }
+  .sig-no{ color:var(--grey-signal); }
+
+  figure{ margin:26px 0 8px; }
+  .figwrap{ border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:12px 6px 4px; overflow-x:auto; }
+  figure svg{ display:block; width:100%; height:auto; min-width:640px; }
+  figcaption{ font-size:13.5px; color:var(--ink-soft); padding:10px 4px 0; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); padding:2px 4px 10px; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:14px; height:3px; display:inline-block; border-radius:2px; }
+
+  .steel{ color:var(--steel); }
+  .amber{ color:var(--amber); }
+  .teal{ color:var(--teal); }
+  .grey{ color:var(--grey-signal); }
+
+  .phaselist{ counter-reset:phase; list-style:none; padding-left:0; }
+  .phaselist li{
+    counter-increment:phase; position:relative; padding:4px 0 14px 40px; border-left:1px solid var(--line);
+    margin-left:9px;
+  }
+  .phaselist li:last-child{ border-left-color:transparent; }
+  .phaselist li::before{
+    content:counter(phase); position:absolute; left:-9px; top:2px; width:18px; height:18px;
+    background:var(--bg); border:1px solid var(--steel); color:var(--steel); border-radius:50%;
+    font-family:var(--font-mono); font-size:10.5px; display:flex; align-items:center; justify-content:center;
+  }
+  .phaselist b{ display:block; font-family:var(--font-display); font-size:15px; margin-bottom:3px; }
+
+  .qgrid{ display:grid; grid-template-columns:1fr; gap:10px; margin:14px 0 8px; }
+  @media (min-width:640px){ .qgrid{ grid-template-columns:1fr 1fr 1fr; } }
+  .qcard{ background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
+  .qcard h4{ font-family:var(--font-display); font-size:13px; letter-spacing:.04em; text-transform:uppercase; margin:0 0 8px; color:var(--steel); }
+  .qcard ol{ margin:0; padding-left:18px; font-size:13.8px; }
+  .qcard li{ margin-bottom:8px; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-soft); }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="kicker">Internal — Architecture Reference</p>
+    <h1>Order Gateway Architecture</h1>
+    <p class="dek">A single API in front of multiple till platforms — routing orders from Dine&nbsp;Direct's Order Harmony hub into GAAP Unity and Pilot Live, and translating whatever comes back into one canonical order-status vocabulary.</p>
+    <div class="meta">
+      <span><b>Owner</b> — this gateway</span>
+      <span><b>Upstream</b> — Order Harmony (Dine Direct)</span>
+      <span><b>Downstream</b> — GAAP Unity · Pilot Live</span>
+      <span><b>Region</b> — South Africa</span>
+    </div>
+  </header>
+
+  <div class="prose">
+    <p class="lede">Order Harmony aggregates channels — Uber Eats, Direct Dine, others — and treats every point-of-sale integration as an interchangeable "partner" behind one spec. GAAP and Pilot are not interchangeable. This document exists because that mismatch has to be designed for, not discovered mid-build.</p>
+  </div>
+
+  <h2><span class="num">01</span>System context</h2>
+  <div class="prose">
+    <p>We own the gateway. Order Harmony is owned by a different company and calls us as a certified POS partner. GAAP and Pilot relationships and API keys are ours, held per restaurant location we onboard — not Order Harmony's, and not necessarily the merchant's.</p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 960 420" role="img" aria-label="Order Harmony sends orders to the gateway once; the gateway calls GAAP with no status returned, so it synthesizes status itself, and calls Pilot which returns a real status callback. Both paths converge on a single signed webhook back to Order Harmony.">
+        <defs>
+          <marker id="ah-steel" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--steel)"/></marker>
+          <marker id="ah-amber" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--amber)"/></marker>
+          <marker id="ah-teal" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--teal)"/></marker>
+        </defs>
+
+        <!-- Order Harmony -->
+        <rect x="20" y="130" width="160" height="160" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="100" y="205" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="15">Order Harmony</text>
+        <text x="100" y="224" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink-soft)">channel hub</text>
+
+        <!-- Gateway -->
+        <rect x="370" y="60" width="220" height="300" rx="6" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.5"/>
+        <text x="480" y="90" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="15">Gateway</text>
+        <text x="480" y="107" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">routes by location.pos_type</text>
+
+        <rect x="390" y="205" width="180" height="42" rx="4" fill="none" stroke="var(--grey-signal)" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <text x="480" y="222" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--grey-signal)">status synthesizer</text>
+        <text x="480" y="236" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--grey-signal)">timer / poll GET /sales</text>
+
+        <rect x="390" y="270" width="180" height="42" rx="4" fill="none" stroke="var(--amber)" stroke-width="1.2"/>
+        <text x="480" y="287" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--amber)">canonical status</text>
+        <text x="480" y="301" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--amber)">5-state vocabulary</text>
+
+        <!-- GAAP -->
+        <rect x="760" y="40" width="180" height="100" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="850" y="80" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="14">GAAP Unity</text>
+        <text x="850" y="98" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">financial record API</text>
+        <text x="850" y="115" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">no order lifecycle</text>
+
+        <!-- Pilot -->
+        <rect x="760" y="280" width="180" height="100" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <text x="850" y="320" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="14">Pilot Live</text>
+        <text x="850" y="338" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">live order object</text>
+        <text x="850" y="355" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">has status callback</text>
+
+        <!-- inbound: OH -> Gateway -->
+        <line x1="180" y1="150" x2="368" y2="150" stroke="var(--steel)" stroke-width="1.6" marker-end="url(#ah-steel)"/>
+        <text x="274" y="142" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--steel)">POST /orders (Idempotency-Key)</text>
+
+        <!-- Gateway -> GAAP -->
+        <line x1="590" y1="120" x2="758" y2="90" stroke="var(--steel)" stroke-width="1.6" marker-end="url(#ah-steel)"/>
+        <text x="674" y="94" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--steel)">POST /sales/create</text>
+        <text x="674" y="107" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)">already paid, already closed</text>
+
+        <!-- GAAP dead end -->
+        <line x1="758" y1="130" x2="700" y2="185" stroke="var(--grey-signal)" stroke-width="1.3" stroke-dasharray="4 4"/>
+        <line x1="694" y1="178" x2="706" y2="192" stroke="var(--grey-signal)" stroke-width="1.6"/>
+        <line x1="706" y1="178" x2="694" y2="192" stroke="var(--grey-signal)" stroke-width="1.6"/>
+        <text x="700" y="205" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--grey-signal)">no status webhook</text>
+
+        <!-- Gateway -> Pilot -->
+        <line x1="590" y1="300" x2="758" y2="330" stroke="var(--steel)" stroke-width="1.6" marker-end="url(#ah-steel)"/>
+        <text x="674" y="313" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--steel)">POST /OnlineOrder/Create</text>
+        <text x="674" y="326" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)">+ our callbackUrl</text>
+
+        <!-- Pilot -> Gateway -->
+        <line x1="758" y1="360" x2="590" y2="330" stroke="var(--teal)" stroke-width="1.8" marker-end="url(#ah-teal)"/>
+        <text x="674" y="354" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--teal)">callback: orderStatus.statusCode</text>
+
+        <!-- Gateway -> OH webhook -->
+        <line x1="368" y1="291" x2="180" y2="240" stroke="var(--amber)" stroke-width="1.8" marker-end="url(#ah-amber)"/>
+        <text x="274" y="284" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--amber)">signed webhook</text>
+        <text x="274" y="298" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)">accepted → preparing → ready → completed</text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--steel)"></span>order injection</span>
+      <span><span class="swatch" style="background:var(--teal)"></span>real status signal</span>
+      <span><span class="swatch" style="background:var(--grey-signal)"></span>no signal available</span>
+      <span><span class="swatch" style="background:var(--amber)"></span>unified output to Order Harmony</span>
+    </div>
+    <figcaption>Order Harmony only ever sees one contract. Behind it, Pilot feeds the gateway real status; GAAP feeds it nothing, so the gateway's own synthesizer fills the gap before anything reaches the canonical webhook.</figcaption>
+  </figure>
+
+  <h2><span class="num">02</span>The three contracts, compared</h2>
+  <div class="prose">
+    <p>Pulled directly from the Order Harmony partner pack and the published GAAP / Pilot OpenAPI specs. This table is the reason the gateway can't treat POS integrations as a single interface with two implementations — the <em>shape</em> of what each side can do is different, not just field names.</p>
+  </div>
+
+  <div class="scrollbox">
+    <table>
+      <thead>
+        <tr><th>Capability</th><th>Order Harmony expects</th><th>GAAP Unity</th><th>Pilot Live</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-label">Order injection</td>
+          <td><code>POST /orders</code>, idempotent, returns <code>pos_order_id</code></td>
+          <td><code>POST /sales/create</code> — an already-closed, already-paid sale (<code>status: TENDERED</code>)</td>
+          <td><code>POST /OnlineOrder/Create</code> — a live order with <code>orderStatus</code> + a per-order <code>callbackUrl</code></td>
+        </tr>
+        <tr>
+          <td class="row-label">Status push-back</td>
+          <td>Required: 5-state webhook to us</td>
+          <td class="sig-no">None. No webhook, no intermediate states.</td>
+          <td class="sig-yes">Supported — status codes not yet documented, needs confirming</td>
+        </tr>
+        <tr>
+          <td class="row-label">Idempotency</td>
+          <td><code>Idempotency-Key</code> header, 24h dedupe</td>
+          <td><code>externalTransactionId</code> (UUIDv4) → 409 on replay</td>
+          <td class="sig-no">Not documented — open question</td>
+        </tr>
+        <tr>
+          <td class="row-label">Menu pull</td>
+          <td><code>GET /menu</code>, stable ids, min/max select, tax bp</td>
+          <td><code>GET /products</code> + <code>GET /groups</code>, paginated</td>
+          <td><code>GET /SalesProducts/Menu</code></td>
+        </tr>
+        <tr>
+          <td class="row-label">Health probe</td>
+          <td><code>GET /health</code></td>
+          <td class="sig-no">None — bounded <code>GET /nodes</code> as a proxy</td>
+          <td><code>GET /api/Health/Check</code></td>
+        </tr>
+        <tr>
+          <td class="row-label">Auth scope</td>
+          <td>Bearer key per location, issued by us</td>
+          <td><code>apikey</code> query param, scoped to one whole GAAP instance</td>
+          <td>Vendor global key → short-lived JWT, scoped to vendor/store</td>
+        </tr>
+        <tr>
+          <td class="row-label">Stock / 86</td>
+          <td>Bidirectional webhooks</td>
+          <td class="sig-no">Not exposed — polling is the only lever</td>
+          <td class="sig-no">Not found in this spec surface</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <span class="label">Why this matters</span>
+    GAAP is a batch/financial recording API, not an order-management API — it has no concept of "the kitchen accepted this." Pilot is much closer to what Order Harmony expects, but the feedback channel's exact behaviour (status codes, retries, idempotency) still needs confirming with Pilot before certification.
+  </div>
+
+  <h2><span class="num">03</span>Ports &amp; adapters</h2>
+  <div class="prose">
+    <p>The core domain — canonical order, canonical menu, the five-state status machine — knows nothing about GAAP, Pilot, or Order Harmony's HTTP shapes. Each adapter implements only the ports its POS actually supports and declares capability flags the application layer reads to decide behaviour, instead of scattering <code>if (posType == Gaap)</code> through the order pipeline.</p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 900 470" role="img" aria-label="Layered architecture: Order Harmony triggers the inbound Channel API, which calls the Application layer, which calls ports implemented by the GAAP and Pilot adapters, which call the external POS systems. Only the Pilot adapter has a signal path back up.">
+        <defs>
+          <marker id="bh-steel" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--steel)"/></marker>
+          <marker id="bh-teal" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--teal)"/></marker>
+        </defs>
+
+        <rect x="300" y="14" width="300" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="450" y="39" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">Order Harmony</text>
+
+        <line x1="450" y1="54" x2="450" y2="76" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+
+        <rect x="180" y="78" width="540" height="52" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+        <text x="450" y="100" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">Channel API — inbound edge</text>
+        <text x="450" y="118" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">POST /orders · GET /menu · GET /health</text>
+
+        <line x1="450" y1="130" x2="450" y2="152" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+
+        <rect x="140" y="154" width="620" height="52" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+        <text x="450" y="176" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">Application layer — use cases</text>
+        <text x="450" y="194" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-soft)">OrderInjection · StatusSync · MenuSync · HealthCheck</text>
+
+        <line x1="300" y1="206" x2="230" y2="228" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+        <line x1="600" y1="206" x2="670" y2="228" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+
+        <rect x="80" y="230" width="300" height="34" rx="4" fill="none" stroke="var(--grey-signal)" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <text x="230" y="251" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--grey-signal)">IPosOrderAdapter / IPosMenuAdapter</text>
+
+        <rect x="520" y="230" width="300" height="34" rx="4" fill="none" stroke="var(--teal)" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <text x="670" y="251" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--teal)">IPosOrderAdapter / IPosMenuAdapter</text>
+
+        <line x1="230" y1="264" x2="230" y2="286" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+        <line x1="670" y1="264" x2="670" y2="286" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+
+        <rect x="80" y="288" width="300" height="76" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+        <text x="230" y="310" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">GaapAdapter</text>
+        <text x="230" y="328" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--grey-signal)">RequiresPrepaidClosedSale: true</text>
+        <text x="230" y="343" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--grey-signal)">SupportsRealtimeOrderStatus: false</text>
+        <text x="230" y="358" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--grey-signal)">owns: GaapStatusSynthesizer</text>
+
+        <rect x="520" y="288" width="300" height="76" rx="4" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.4"/>
+        <text x="670" y="310" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">PilotAdapter</text>
+        <text x="670" y="328" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--teal)">RequiresPrepaidClosedSale: false</text>
+        <text x="670" y="343" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--teal)">SupportsRealtimeOrderStatus: true</text>
+        <text x="670" y="358" text-anchor="middle" font-family="var(--font-mono)" font-size="9.8" fill="var(--teal)">owns: callback receiver</text>
+
+        <line x1="230" y1="364" x2="230" y2="386" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+        <line x1="670" y1="364" x2="670" y2="386" stroke="var(--steel)" stroke-width="1.5" marker-end="url(#bh-steel)"/>
+        <line x1="705" y1="386" x2="705" y2="364" stroke="var(--teal)" stroke-width="1.6" marker-end="url(#bh-teal)"/>
+
+        <rect x="80" y="388" width="300" height="46" rx="4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="230" y="416" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">GAAP Unity</text>
+
+        <rect x="520" y="388" width="300" height="46" rx="4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="670" y="416" text-anchor="middle" font-family="var(--font-display)" font-weight="700" font-size="13.5">Pilot Live</text>
+
+        <text x="705" y="380" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="var(--teal)">callback</text>
+      </svg>
+    </div>
+    <figcaption>Same ports, two very different adapters. The GAAP column terminates at the external system; the Pilot column has a signal path back up — the diagram in §01 repeated at the component level.</figcaption>
+  </figure>
+
+  <h2><span class="num">04</span>Handling the GAAP gap</h2>
+  <div class="prose">
+    <p>Because GAAP gives no feedback after injection succeeds, the gateway can't honestly report <code>preparing</code>/<code>ready</code> for GAAP-backed locations — it doesn't know either happened. This is a business call as much as a technical one:</p>
+    <ol>
+      <li><b>Synthesize a status curve</b> — emit <code>accepted</code> on injection, <code>completed</code> after a configurable delay tuned to prep time. Looks plausible on the tablet UI, but isn't driven by the actual kitchen.</li>
+      <li><b>Collapse to two states</b> — emit <code>accepted</code> immediately, <code>completed</code> only once a scheduled poll of <code>GET /sales</code> confirms the invoice is <code>TENDERED</code> and not <code>CANCELED</code>. Less impressive, more honest.</li>
+    </ol>
+    <p><strong>Recommendation:</strong> start with option 2, treat option 1 as a UX enhancement once real prep-time data exists per location — and ask GAAP directly whether a real-time kitchen/order channel exists outside this Data-API, since a pure BI/accounting endpoint being the only injection path for live orders would be unusual.</p>
+  </div>
+
+  <h2><span class="num">05</span>Where the state lives</h2>
+  <div class="prose">
+    <p><code>Group → Store → ChannelConnection + PosConnection + BillingPlan</code> is the core of the data model — a <code>Store</code> carries the Order Harmony key we issue, a timezone, a lifecycle state (Draft/Active/Paused/Deactivated), and points at either a GAAP <code>nodeId</code>/<code>locationId</code> or a Pilot <code>vendorId</code>/<code>siteId</code>. There's no persisted product-mapping table — the gateway passes product/modifier identifiers straight through as the POS's own native ids, so <code>external_product_id</code> never needs translating.</p>
+    <p>Idempotency is enforced at every hop with a different key: <code>Idempotency-Key</code> inbound from Order Harmony, a deterministic <code>externalTransactionId</code> (UUIDv4 derived from <code>order_ref</code>) outbound to GAAP, and a stable <code>event_id</code> on every outbound status webhook — retried <code>1s, 5s, 30s, 2m, 10m</code>, never regressing a terminal status.</p>
+  </div>
+
+  <h2><span class="num">06</span>Azure shape</h2>
+  <div class="prose">
+    <ul>
+      <li><strong>Compute, split by workload</strong> — Azure App Service (min 1 instance, deployment slots for zero-downtime deploys) for the Order Harmony-facing API; Azure Functions on Flex Consumption for everything reading off Service Bus (webhook retries, GAAP status timers, scheduled menu re-pull). No containers to manage on either side.</li>
+      <li><strong>Static egress IP</strong> — VNet Integration + NAT Gateway on both. Order Harmony's certification checklist asks for our source IP ranges to allow-list.</li>
+      <li><strong>Database</strong> — Azure SQL or Postgres Flexible Server for stores, connections, mappings, orders, event history.</li>
+      <li><strong>Async plane</strong> — Service Bus queue decoupling outbound webhook retry/backoff from the request path; PeekLock + outbox pattern for near-zero message loss across deploys.</li>
+      <li><strong>Secrets</strong> — Key Vault for every POS credential and the Order Harmony HMAC signing secret; managed identity, nothing in config.</li>
+      <li><strong>Observability</strong> — Application Insights, correlated end to end by <code>order_ref</code>.</li>
+    </ul>
+  </div>
+
+  <h2><span class="num">07</span>Open questions</h2>
+  <div class="prose"><p>Things that need an answer from each party before certification, not assumptions to code around silently.</p></div>
+  <div class="qgrid">
+    <div class="qcard">
+      <h4>GAAP</h4>
+      <ol>
+        <li>Any real-time order/kitchen channel outside this Data-API?</li>
+        <li>Production rate/pagination limits beyond the sandbox cap of 5.</li>
+        <li>How do we source and keep in sync <code>nodeId</code>, <code>employeeId</code>, <code>paymentMethodId</code> for injected sales?</li>
+        <li>Does one <code>apikey</code> cover a merchant's whole estate, or one per location?</li>
+      </ol>
+    </div>
+    <div class="qcard">
+      <h4>Pilot</h4>
+      <ol>
+        <li>The full <code>orderStatus.statusCode</code> integer table.</li>
+        <li>Exact payload Pilot POSTs to our <code>callbackUrl</code>.</li>
+        <li>Idempotency behaviour on <code>OnlineOrder/Create</code> replay.</li>
+        <li><code>vendorId</code> registration process end to end.</li>
+      </ol>
+    </div>
+    <div class="qcard">
+      <h4>Order Harmony</h4>
+      <ol>
+        <li>Sandbox base URL and per-location key issuance flow.</li>
+        <li>Webhook signing-secret exchange method.</li>
+        <li>Confirm our declared rate limits before go-live.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2><span class="num">08</span>Delivery phases</h2>
+  <ol class="phaselist">
+    <li><b>Skeleton, one adapter, one path</b>Domain model, state machine, <code>Gateway.Api</code> implementing <code>POST /orders</code> + <code>GET /health</code>, Pilot adapter only — prove the shape end to end in sandbox.</li>
+    <li><b>Persistence, idempotency, outbound webhooks</b>Real database, signed webhook delivery with retry/backoff, <code>GET /menu</code> for Pilot.</li>
+    <li><b>GAAP adapter + synthetic status</b>Second adapter — proves the capability-flag design actually isolates the difference cleanly.</li>
+    <li><b>Stock/86, store status/hours, certification suite</b>Work through the full checklist in Order Harmony doc 04 for both POS platforms.</li>
+    <li><b>Hardening</b>Rate limiting, dashboards, location auto-pause parity, key rotation runbook.</li>
+  </ol>
+
+  <footer>
+    Full detail — data model DDL-level notes, solution folder layout, the complete Order Harmony certification checklist mapping — lives in <code>docs/architecture/ARCHITECTURE.md</code> in the repo, alongside the downloaded <code>gaap.swagger.json</code> and <code>pilot.swagger.json</code> reference specs.
+  </footer>
+
+</div>

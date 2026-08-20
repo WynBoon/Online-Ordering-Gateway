@@ -1,0 +1,241 @@
+<title>Order Gateway Rollout</title>
+<style>
+  :root{
+    --bg:#EEF0EC; --surface:#F8F8F4; --surface-2:#E4E7DF;
+    --ink:#1B211E; --ink-soft:#4B534E; --line:#C9CEC6;
+    --steel:#2F5468; --amber:#9C5E1B; --teal:#146F62; --grey-signal:#7C837B;
+    --code-bg:#E4E7DF;
+    --font-display: ui-sans-serif, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-body: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141815; --surface:#1B211D; --surface-2:#232922;
+      --ink:#E9ECE6; --ink-soft:#AAB3AA; --line:#333B35;
+      --steel:#86AFC8; --amber:#D8974A; --teal:#49C7B2; --grey-signal:#7A827B;
+      --code-bg:#232922;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141815; --surface:#1B211D; --surface-2:#232922;
+    --ink:#E9ECE6; --ink-soft:#AAB3AA; --line:#333B35;
+    --steel:#86AFC8; --amber:#D8974A; --teal:#49C7B2; --grey-signal:#7A827B;
+    --code-bg:#232922;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--amber); color:var(--surface); }
+  .page{ max-width:960px; margin:0 auto; padding:56px 24px 96px; }
+  .prose{ max-width:700px; }
+
+  header.masthead{ border-top:3px solid var(--ink); border-bottom:1px solid var(--line); padding:22px 0 20px; margin-bottom:36px; }
+  .kicker{ font-family:var(--font-display); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); margin:0 0 10px; }
+  h1{ font-family:var(--font-display); font-weight:800; letter-spacing:-.01em; font-size:clamp(28px,4vw,42px); line-height:1.08; margin:0 0 14px; text-wrap:balance; }
+  .dek{ font-size:17px; color:var(--ink-soft); max-width:640px; margin:0 0 20px; }
+  .meta{ display:flex; flex-wrap:wrap; gap:22px; font-family:var(--font-mono); font-size:12.5px; color:var(--ink-soft); }
+  .meta b{ color:var(--ink); font-weight:600; }
+
+  h2{ font-family:var(--font-display); font-weight:700; font-size:23px; letter-spacing:-.005em; margin:52px 0 6px; text-wrap:balance; }
+  h2 .num{ color:var(--steel); font-variant-numeric:tabular-nums; margin-right:10px; }
+  p{ margin:0 0 14px; }
+  code{ font-family:var(--font-mono); font-size:.86em; background:var(--code-bg); border:1px solid var(--line); border-radius:3px; padding:.05em .35em; }
+
+  .callout{ background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--amber); border-radius:4px; padding:16px 18px; margin:20px 0; font-size:15px; }
+  .callout .label{ font-family:var(--font-display); font-weight:700; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); display:block; margin-bottom:6px; }
+
+  figure{ margin:26px 0 8px; }
+  .figwrap{ border:1px solid var(--line); border-radius:6px; background:var(--surface); padding:14px 6px 4px; overflow-x:auto; }
+  figure svg{ display:block; width:100%; height:auto; min-width:760px; }
+  figcaption{ font-size:13.5px; color:var(--ink-soft); padding:10px 4px 0; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); padding:2px 4px 10px; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:14px; height:8px; display:inline-block; border-radius:2px; }
+  .swatch.hatch{ background-image:repeating-linear-gradient(45deg, var(--grey-signal) 0 2px, transparent 2px 5px); border:1px solid var(--grey-signal); }
+
+  .scrollbox{ overflow-x:auto; margin:22px 0; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+  table{ border-collapse:collapse; width:100%; min-width:680px; font-size:13.8px; }
+  thead th{ font-family:var(--font-display); text-transform:uppercase; letter-spacing:.06em; font-size:11px; text-align:left; color:var(--ink-soft); border-bottom:1px solid var(--line); padding:10px 14px; background:var(--surface-2); white-space:nowrap; }
+  tbody td{ padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.row-label{ font-family:var(--font-display); font-weight:700; white-space:nowrap; }
+  .tag{ font-family:var(--font-mono); font-size:11px; padding:2px 7px; border-radius:10px; border:1px solid var(--line); white-space:nowrap; display:inline-block; }
+  .tag.build{ color:var(--steel); border-color:var(--steel); }
+  .tag.poc{ color:var(--amber); border-color:var(--amber); }
+  .tag.blocked{ color:var(--grey-signal); border-color:var(--grey-signal); }
+
+  .qgrid{ display:grid; grid-template-columns:1fr; gap:10px; margin:14px 0 8px; }
+  @media (min-width:640px){ .qgrid{ grid-template-columns:1fr 1fr 1fr; } }
+  .qcard{ background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
+  .qcard h4{ font-family:var(--font-display); font-size:13px; letter-spacing:.04em; text-transform:uppercase; margin:0 0 8px; color:var(--steel); }
+  .qcard p{ font-size:13.8px; margin:0; color:var(--ink-soft); }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-soft); }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="kicker">Internal — Delivery Plan</p>
+    <h1>Order Gateway Rollout</h1>
+    <p class="dek">Pilot is confirmed and moving. GAAP is a second track that starts the moment they confirm the real endpoint — nothing built for Pilot needs redoing when it does.</p>
+    <div class="meta">
+      <span><b>Wyndham</b> — builds the gateway</span>
+      <span><b>Eddie</b> — test POS / test customer</span>
+      <span><b>Nick</b> — DineDirect / Order Harmony side</span>
+    </div>
+  </header>
+
+  <h2><span class="num">01</span>Roadmap</h2>
+  <div class="prose">
+    <p>Weeks are relative effort estimates, not calendar commitments. The GAAP track shares Phase 0 with Pilot, then sits blocked at an unknown width until they answer — drawn deliberately not-to-scale past that point.</p>
+  </div>
+
+  <figure>
+    <div class="figwrap">
+      <svg viewBox="0 0 1000 300" role="img" aria-label="Pilot track runs Foundations, Adapter build, Order Harmony channel, Integration test, then a POC with a customer to be named, ending at a release gate around week twelve. GAAP track shares Foundations then sits blocked on vendor confirmation for an unknown duration before mirroring the same later steps.">
+        <!-- axis -->
+        <line x1="70" y1="245" x2="900" y2="245" stroke="var(--line)" stroke-width="1"/>
+        <g font-family="var(--font-mono)" font-size="10" fill="var(--ink-soft)">
+          <text x="70" y="260">0</text>
+          <text x="190" y="260">2</text>
+          <text x="310" y="260">4</text>
+          <text x="430" y="260">6</text>
+          <text x="550" y="260">8</text>
+          <text x="670" y="260">10</text>
+          <text x="790" y="260">12</text>
+          <text x="900" y="260">14 wk</text>
+        </g>
+        <g stroke="var(--line)" stroke-width="1">
+          <line x1="190" y1="240" x2="190" y2="250"/>
+          <line x1="310" y1="240" x2="310" y2="250"/>
+          <line x1="430" y1="240" x2="430" y2="250"/>
+          <line x1="550" y1="240" x2="550" y2="250"/>
+          <line x1="670" y1="240" x2="670" y2="250"/>
+          <line x1="790" y1="240" x2="790" y2="250"/>
+        </g>
+
+        <!-- PILOT TRACK -->
+        <text x="70" y="70" font-family="var(--font-mono)" font-size="11" letter-spacing="0.06em" fill="var(--steel)">PILOT TRACK</text>
+        <g font-family="var(--font-display)" font-weight="700" font-size="12.5" fill="var(--surface)">
+          <rect x="70" y="80" width="90" height="46" fill="var(--steel)"/>
+          <text x="115" y="107" text-anchor="middle">F0</text>
+
+          <rect x="164" y="80" width="164" height="46" fill="var(--steel)"/>
+          <text x="246" y="107" text-anchor="middle">P1</text>
+
+          <rect x="332" y="80" width="116" height="46" fill="var(--steel)"/>
+          <text x="390" y="107" text-anchor="middle">P2</text>
+
+          <rect x="452" y="80" width="104" height="46" fill="var(--steel)"/>
+          <text x="504" y="107" text-anchor="middle">P3</text>
+
+          <rect x="560" y="80" width="176" height="46" fill="var(--amber)"/>
+          <text x="648" y="102" text-anchor="middle">P4 — POC</text>
+          <text x="648" y="117" text-anchor="middle" font-family="var(--font-mono)" font-weight="400" font-size="10">[site TBD]</text>
+
+          <rect x="740" y="80" width="86" height="46" fill="var(--steel)"/>
+          <text x="783" y="107" text-anchor="middle">P6</text>
+        </g>
+        <line x1="826" y1="66" x2="826" y2="245" stroke="var(--amber)" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <text x="826" y="58" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--amber)">GA — production keys issued</text>
+
+        <!-- people involvement -->
+        <line x1="246" y1="140" x2="736" y2="140" stroke="var(--ink-soft)" stroke-width="1.2"/>
+        <circle cx="246" cy="140" r="3" fill="var(--ink-soft)"/>
+        <text x="252" y="144" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)">Eddie — test POS active</text>
+
+        <line x1="390" y1="156" x2="556" y2="156" stroke="var(--ink-soft)" stroke-width="1.2"/>
+        <circle cx="390" cy="156" r="3" fill="var(--ink-soft)"/>
+        <text x="396" y="160" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-soft)">Nick — DineDirect side active</text>
+
+        <!-- GAAP TRACK -->
+        <text x="70" y="192" font-family="var(--font-mono)" font-size="11" letter-spacing="0.06em" fill="var(--grey-signal)">GAAP TRACK — gated</text>
+        <rect x="164" y="200" width="340" height="40" fill="none" stroke="var(--grey-signal)" stroke-width="1.3" stroke-dasharray="2 3"/>
+        <text x="334" y="224" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--grey-signal)">blocked — awaiting confirmed endpoint</text>
+
+        <g font-family="var(--font-display)" font-weight="700" font-size="11.5" fill="var(--surface)" opacity="0.85">
+          <rect x="520" y="200" width="120" height="40" fill="var(--steel)"/>
+          <text x="580" y="224" text-anchor="middle">G1</text>
+          <rect x="646" y="200" width="90" height="40" fill="var(--steel)"/>
+          <text x="691" y="224" text-anchor="middle">G2</text>
+          <rect x="742" y="200" width="130" height="40" fill="var(--amber)"/>
+          <text x="807" y="224" text-anchor="middle">G3 — POC</text>
+        </g>
+        <text x="740" y="192" font-family="var(--font-mono)" font-size="9" fill="var(--grey-signal)">(start date unknown — shown relative only)</text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--steel)"></span>build &amp; test</span>
+      <span><span class="swatch" style="background:var(--amber)"></span>customer-facing POC / release gate</span>
+      <span><span class="swatch hatch"></span>blocked on external dependency</span>
+    </div>
+    <figcaption>F0 Foundations · P1 Pilot adapter · P2 Order Harmony channel · P3 Integration &amp; certification test · P4 POC · P6 Release hardening. G1–G3 mirror P1/P3/P4 for GAAP once unblocked.</figcaption>
+  </figure>
+
+  <h2><span class="num">02</span>Phases</h2>
+  <div class="scrollbox">
+    <table>
+      <thead><tr><th>Phase</th><th>Owner</th><th>Estimate</th><th>Exit criteria</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="row-label">F0 — Foundations <span class="tag build">build</span></td>
+          <td>Wyndham</td><td>~1.5 wk</td>
+          <td>Solution deploys to Azure dev; schema migrated; trivial health check passes.</td>
+        </tr>
+        <tr>
+          <td class="row-label">P1 — Pilot adapter <span class="tag build">build</span></td>
+          <td>Wyndham; Eddie joins late</td><td>~2.5–3 wk</td>
+          <td>Synthetic order injects into Eddie's test till; a status change reflects back correctly via callback.</td>
+        </tr>
+        <tr>
+          <td class="row-label">P2 — Order Harmony channel <span class="tag build">build</span></td>
+          <td>Wyndham; Nick joins late</td><td>~2 wk</td>
+          <td>Nick triggers a test order from DineDirect sandbox; it lands correctly and status webhooks return.</td>
+        </tr>
+        <tr>
+          <td class="row-label">P3 — Integration &amp; certification <span class="tag build">build</span></td>
+          <td>Wyndham, Eddie, Nick</td><td>~1.5–2 wk</td>
+          <td>All 14 Order Harmony sandbox scenarios pass; Eddie and Nick both sign off.</td>
+        </tr>
+        <tr>
+          <td class="row-label">P4 — POC <span class="tag poc">customer-facing</span></td>
+          <td>All three + <code>[site TBD]</code></td><td>2–4 wk live window</td>
+          <td>Go/no-go against defined metrics: order accuracy, injection latency, webhook success rate, zero duplicates, manual-intervention rate.</td>
+        </tr>
+        <tr>
+          <td class="row-label">G1–G3 — GAAP track <span class="tag blocked">gated</span></td>
+          <td>Wyndham (+ Eddie/Nick for test)</td><td>Unknown start</td>
+          <td>Mirrors P1/P3/P4 for GAAP once they confirm the correct endpoint.</td>
+        </tr>
+        <tr>
+          <td class="row-label">P6 — Release hardening <span class="tag build">build</span></td>
+          <td>Wyndham</td><td>~1–2 wk</td>
+          <td>Production keys issued by Order Harmony; a new location can be onboarded from the runbook alone.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2><span class="num">03</span>Open items</h2>
+  <div class="qgrid">
+    <div class="qcard"><h4>POC site</h4><p>Still unnamed. Doesn't block Phases 0–3, but needs deciding before Phase 4 starts.</p></div>
+    <div class="qcard"><h4>GAAP</h4><p>Awaiting their answer on the correct Online Order API — blocks the entire G-track start.</p></div>
+    <div class="qcard"><h4>Pilot follow-ups</h4><p>Status-code table and site-provisioning process from the kickoff call — needed before P1 fully closes out.</p></div>
+  </div>
+
+  <div class="callout">
+    <span class="label">Total estimate</span>
+    Roughly <strong>9–11 weeks of engineering effort</strong> for the Pilot-only path through to GA (Phase 4's live-observation window may run longer in calendar time than in effort). GAAP is additive and unblocked independently.
+  </div>
+
+  <footer>
+    Full phase detail lives in <code>docs/planning/project-plan.md</code>; the technical design behind these phases is in <code>docs/architecture/ARCHITECTURE.md</code>.
+  </footer>
+
+</div>

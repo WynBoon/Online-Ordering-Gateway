@@ -1,0 +1,155 @@
+@page "/"
+@rendermode InteractiveServer
+@using Gateway.Application.Repositories
+@using Gateway.Domain.Enums
+@using Gateway.Domain.Events
+@using Gateway.Domain.Tenancy
+@using Gateway.Portal.Services
+@inject IStoreRepository StoreRepository
+@inject LiveOrderFeedService LiveFeed
+@implements IDisposable
+
+<PageTitle>Command Centre</PageTitle>
+
+@* The home screen is a command centre, not a tile dashboard — exception-first,
+   not volume-first (UI-ARCHITECTURE.md, "Decided"). Fleet status grid, live
+   ticker, exceptions sorted to the top, rolling KPIs with trend. *@
+
+<MudText Typo="Typo.h4" Class="mb-4">Command Centre</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">Orders today</MudText>
+            <MudText Typo="Typo.h4">@_ordersToday</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">Success rate (1h)</MudText>
+            <MudText Typo="Typo.h4">@(_successRateLastHour is null ? "—" : $"{_successRateLastHour:P0}")</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">Stores needing attention</MudText>
+            <MudText Typo="Typo.h4" Color="@(_attentionStores.Count > 0 ? Color.Error : Color.Success)">@_attentionStores.Count</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="3">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.subtitle2">Active stores</MudText>
+            <MudText Typo="Typo.h4">@_stores.Count(s => s.State == StoreState.Active) / @_stores.Count</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@if (_attentionStores.Count > 0)
+{
+    <MudAlert Severity="Severity.Warning" Class="mt-4">
+        Needs attention: @string.Join(", ", _attentionStores.Select(s => s.Name))
+    </MudAlert>
+}
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Fleet</MudText>
+<MudGrid>
+    @foreach (var store in _stores.OrderBy(FleetSortKey))
+    {
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-3" Elevation="1" Style="@($"border-left: 6px solid {StateColorHex(store.State)}")">
+                <MudText Typo="Typo.subtitle1">@store.Name</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@StateColor(store.State)">@store.State</MudChip>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Live feed</MudText>
+<MudPaper Class="pa-3" Elevation="1" Style="max-height: 320px; overflow-y: auto;">
+    @if (_liveEvents.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No activity yet.</MudText>
+    }
+    else
+    {
+        @foreach (var evt in _liveEvents)
+        {
+            <div class="d-flex justify-space-between py-1">
+                <MudText Typo="Typo.body2">@evt.EventTimeUtc.ToLocalTime().ToString("T") — @evt.OrderRef — @evt.EventType</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@(evt.Outcome == "success" ? Color.Success : Color.Error)">@(evt.Status?.ToString() ?? evt.Outcome)</MudChip>
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    private List<Store> _stores = [];
+    private List<Store> _attentionStores = [];
+    private readonly List<OrderEvent> _liveEvents = [];
+    private int _ordersToday;
+
+    // TODO: wire to the hourly rollups once they exist (ARCHITECTURE.md §12) —
+    // deliberately left null (renders as "—") rather than computed from raw
+    // events, which the design explicitly says not to query for this view.
+    private readonly double? _successRateLastHour = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stores = (await StoreRepository.GetAllAsync(CancellationToken.None)).ToList();
+        _attentionStores = _stores.Where(s => s.State == StoreState.Paused).ToList();
+        LiveFeed.OrderEventReceived += OnLiveEventAsync;
+    }
+
+    private Task OnLiveEventAsync(OrderEvent evt)
+    {
+        return InvokeAsync(() =>
+        {
+            _liveEvents.Insert(0, evt);
+            if (_liveEvents.Count > 50)
+            {
+                _liveEvents.RemoveAt(_liveEvents.Count - 1);
+            }
+
+            if (evt.EventTimeUtc.Date == DateTimeOffset.UtcNow.Date)
+            {
+                _ordersToday++;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    // Exceptions first, then by name — the whole point of a command centre
+    // (UI-ARCHITECTURE.md, "Decided").
+    private static int FleetSortKey(Store s) => s.State switch
+    {
+        StoreState.Paused => 0,
+        StoreState.Draft => 1,
+        StoreState.Active => 2,
+        StoreState.Deactivated => 3,
+        _ => 4
+    };
+
+    private static Color StateColor(StoreState state) => state switch
+    {
+        StoreState.Active => Color.Success,
+        StoreState.Paused => Color.Error,
+        StoreState.Draft => Color.Default,
+        StoreState.Deactivated => Color.Dark,
+        _ => Color.Default
+    };
+
+    private static string StateColorHex(StoreState state) => state switch
+    {
+        StoreState.Active => "var(--mud-palette-success)",
+        StoreState.Paused => "var(--mud-palette-error)",
+        StoreState.Draft => "var(--mud-palette-grey-500)",
+        StoreState.Deactivated => "var(--mud-palette-dark)",
+        _ => "transparent"
+    };
+
+    public void Dispose()
+    {
+        LiveFeed.OrderEventReceived -= OnLiveEventAsync;
+    }
+}

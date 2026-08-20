@@ -1,0 +1,15 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Azure Functions local dev — never commit real secrets/connection strings
+local.settings.json
+
+# IDE
+.vs/
+.vscode/
+*.suo
+
+# Test results
+[Tt]est[Rr]esult*/
