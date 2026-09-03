@@ -55,4 +55,23 @@ public sealed class StoreRepository(GatewayDbContext db) : IStoreRepository
         store.StateChangeReason = reason;
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task SavePosConnectionAsync(PosConnection connection, CancellationToken ct)
+    {
+        var existing = await db.PosConnections.FirstOrDefaultAsync(c => c.StoreId == connection.StoreId, ct);
+        if (existing is null)
+        {
+            db.PosConnections.Add(connection);
+        }
+        else
+        {
+            existing.PosType = connection.PosType;
+            existing.ExternalNodeId = connection.ExternalNodeId;
+            existing.ExternalLocationId = connection.ExternalLocationId;
+            existing.SecretRef = connection.SecretRef;
+            existing.ExtraConfig = new Dictionary<string, string>(connection.ExtraConfig);
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
 }

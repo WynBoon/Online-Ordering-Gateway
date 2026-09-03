@@ -6,6 +6,7 @@
 
 <PageTitle>Stores</PageTitle>
 
+<MudButton Variant="Variant.Text" Href="/" StartIcon="@Icons.Material.Filled.ArrowBack">Command centre</MudButton>
 <div class="d-flex justify-space-between align-center mb-4">
     <MudText Typo="Typo.h4">Stores</MudText>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/stores/new" StartIcon="@Icons.Material.Filled.Add">
@@ -20,7 +21,9 @@
         <MudTh>Timezone</MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Name">
+            <MudLink Href="@($"/stores/{context.Id}")">@context.Name</MudLink>
+        </MudTd>
         <MudTd DataLabel="State">@context.State</MudTd>
         <MudTd DataLabel="Timezone">@context.Timezone</MudTd>
     </RowTemplate>

@@ -12,7 +12,7 @@ public sealed class GatewayDbContextFactory : IDesignTimeDbContextFactory<Gatewa
     public GatewayDbContext CreateDbContext(string[] args)
     {
         var optionsBuilder = new DbContextOptionsBuilder<GatewayDbContext>();
-        optionsBuilder.UseSqlServer("Server=localhost;Database=Gateway;Trusted_Connection=True;TrustServerCertificate=True;");
+        optionsBuilder.UseSqlServer("Server=localhost,1433;Database=Gateway;User Id=sa;Password=Gateway_LocalDev_1;TrustServerCertificate=True;MultipleActiveResultSets=true");
         return new GatewayDbContext(optionsBuilder.Options);
     }
 }

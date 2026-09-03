@@ -1,6 +1,44 @@
 @Gateway.Api_HostAddress = http://localhost:5175
+@LocationKey = dev-local-location-key
 
-GET {{Gateway.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health (auth + DB + POS ping — 503 until LocalSecrets:pilot-api-key is set)
+GET {{Gateway.Api_HostAddress}}/health
+Authorization: Bearer {{LocationKey}}
 
-###
+### Menu (hits Pilot — needs a real API key in user secrets)
+GET {{Gateway.Api_HostAddress}}/menu
+Authorization: Bearer {{LocationKey}}
+
+### Inject a pickup order
+POST {{Gateway.Api_HostAddress}}/orders
+Authorization: Bearer {{LocationKey}}
+Idempotency-Key: {{$guid}}
+Content-Type: application/json
+
+{
+  "order_ref": "OH-LOCAL-001",
+  "display_id": "A1",
+  "source_channel": "test",
+  "location_id": "local-dev",
+  "fulfillment_type": "pickup",
+  "placed_at": "2026-08-20T12:00:00Z",
+  "items": [
+    {
+      "external_product_id": "dev-plu-1",
+      "name": "Test burger",
+      "quantity": 1,
+      "unit_price_cents": 8500,
+      "total_price_cents": 8500,
+      "modifiers": []
+    }
+  ],
+  "subtotal_cents": 8500,
+  "tax_cents": 0,
+  "delivery_fee_cents": 0,
+  "tip_cents": 0,
+  "total_cents": 8500,
+  "currency": "ZAR",
+  "payment": {
+    "prepaid": true
+  }
+}

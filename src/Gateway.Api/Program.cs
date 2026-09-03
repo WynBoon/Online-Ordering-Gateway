@@ -3,6 +3,7 @@ using Gateway.Adapters.OrderHarmony;
 using Gateway.Adapters.Pilot;
 using Gateway.Application.UseCases;
 using Gateway.Infrastructure.DependencyInjection;
+using Gateway.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,8 @@ builder.Services.AddScoped<HealthCheckUseCase>();
 builder.Services.AddScoped<StatusSyncUseCase>();
 
 var app = builder.Build();
+
+await DevelopmentHost.InitializeAsync(app.Services, app.Configuration, app.Environment.IsDevelopment());
 
 if (app.Environment.IsDevelopment())
 {

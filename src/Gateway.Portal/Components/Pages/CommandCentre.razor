@@ -7,6 +7,7 @@
 @using Gateway.Portal.Services
 @inject IStoreRepository StoreRepository
 @inject LiveOrderFeedService LiveFeed
+@inject NavigationManager Nav
 @implements IDisposable
 
 <PageTitle>Command Centre</PageTitle>
@@ -56,7 +57,8 @@
     @foreach (var store in _stores.OrderBy(FleetSortKey))
     {
         <MudItem xs="12" sm="6" md="3">
-            <MudPaper Class="pa-3" Elevation="1" Style="@($"border-left: 6px solid {StateColorHex(store.State)}")">
+            <MudPaper Class="pa-3" Elevation="1" Style="@($"border-left: 6px solid {StateColorHex(store.State)}; cursor: pointer")"
+                      @onclick="@(() => Nav.NavigateTo($"/stores/{store.Id}"))">
                 <MudText Typo="Typo.subtitle1">@store.Name</MudText>
                 <MudChip T="string" Size="Size.Small" Color="@StateColor(store.State)">@store.State</MudChip>
             </MudPaper>

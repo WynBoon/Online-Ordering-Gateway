@@ -4,6 +4,7 @@ using Gateway.Adapters.OrderHarmony;
 using Gateway.Adapters.Pilot;
 using Gateway.Application.UseCases;
 using Gateway.Infrastructure.DependencyInjection;
+using Gateway.Infrastructure.Persistence;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
@@ -21,6 +22,15 @@ var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true);
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+}
+
 builder.Services.AddGatewayInfrastructure(builder.Configuration);
 builder.Services.AddOrderHarmonyChannel();
 builder.Services.AddGaapAdapter(builder.Configuration);
@@ -35,4 +45,9 @@ if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APPLICATIONINSIGHT
         .UseAzureMonitorExporter();
 }
 
-builder.Build().Run();
+var host = builder.Build();
+await DevelopmentHost.InitializeAsync(
+    host.Services,
+    host.Services.GetRequiredService<IConfiguration>(),
+    host.Services.GetRequiredService<IHostEnvironment>().IsDevelopment());
+host.Run();

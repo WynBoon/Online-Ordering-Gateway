@@ -6,4 +6,5 @@ public interface IIdempotencyStore
 {
     Task<IdempotencyRecord?> FindAsync(string idempotencyKey, CancellationToken ct);
     Task SaveAsync(IdempotencyRecord record, CancellationToken ct);
+    Task RemoveAsync(string idempotencyKey, CancellationToken ct);
 }

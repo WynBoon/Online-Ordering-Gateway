@@ -52,6 +52,9 @@ public sealed class OrderInjectionUseCase(
 
         if (!result.Success)
         {
+            logger.LogError(
+                "Order {OrderRef} injection failed for store {StoreId} pos={PosType}: {ErrorCode} {ErrorMessage}",
+                order.OrderRef, store.Id, connection.PosType, result.ErrorCode, result.ErrorMessage);
             await orderRepository.AppendEventAsync(new OrderEvent
             {
                 StoreId = store.Id,

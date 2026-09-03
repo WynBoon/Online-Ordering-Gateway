@@ -1,0 +1,162 @@
+@using Gateway.Adapters.Pilot
+@using Gateway.Application.Ports
+@using Gateway.Domain.Tenancy
+@using Microsoft.Extensions.Options
+@inject PilotTokenProvider Tokens
+@inject ISecretResolver Secrets
+@inject IOptions<PilotOptions> PilotOptions
+
+<MudText Typo="Typo.subtitle1" Class="mb-1">Pilot connection</MudText>
+<MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+    Resolves vendor and store from POST /Authorization/Token at @PilotOptions.Value.BaseUrl
+</MudText>
+
+@if (HasStoredCredential)
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+        An API key is already stored. Paste a new one only to replace it — it is never shown again.
+    </MudAlert>
+}
+
+<MudTextField T="string"
+              Label="Pilot API key"
+              @bind-Value="_apiKey"
+              InputType="InputType.Password"
+              Immediate="true"
+              Placeholder="@(HasStoredCredential ? "Leave blank to keep the stored key" : "Paste the Pilot global API key")"
+              Class="mb-3" />
+
+<MudButton Variant="Variant.Filled"
+           Color="Color.Primary"
+           Disabled="@(!CanTest || _probing)"
+           OnClick="TestAsync"
+           StartIcon="@Icons.Material.Filled.Cable">
+    @(_probing ? "Testing…" : "Test connection")
+</MudButton>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">@_error</MudAlert>
+}
+
+@if (_probe is not null || HasResolvedIds)
+{
+    <MudPaper Class="pa-3 mt-4" Outlined="true">
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Resolved from Pilot</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.caption">VendorId</MudText>
+                <MudText Typo="Typo.h6">@(VendorId ?? "—")</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.caption">StoreId</MudText>
+                <MudText Typo="Typo.h6">@(SiteId ?? "—")</MudText>
+            </MudItem>
+        </MudGrid>
+        @if (_probe is not null)
+        {
+            <MudText Typo="Typo.caption" Class="mt-2">
+                @_probe.TokenType token expires @_probe.ExpiresAt.LocalDateTime.ToString("g")
+            </MudText>
+        }
+        else if (_probedAt is not null)
+        {
+            <MudText Typo="Typo.caption" Class="mt-2">Last tested @_probedAt.Value.LocalDateTime.ToString("g")</MudText>
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1">Permissions</MudText>
+        @if (_permissions.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Test the connection to load permissions.</MudText>
+        }
+        else
+        {
+            <MudChipSet T="string">
+                @foreach (var permission in _permissions)
+                {
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@(IsOnlineOrders(permission) ? Color.Success : Color.Default)"
+                             Variant="@(IsOnlineOrders(permission) ? Variant.Filled : Variant.Outlined)">
+                        @permission
+                    </MudChip>
+                }
+            </MudChipSet>
+            @if (MissingOnlineOrders)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                    This key is missing the OnlineOrders permission — order injection will fail.
+                </MudAlert>
+            }
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public PosConnection Connection { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<bool> ProbeSucceeded { get; set; }
+
+    private string _apiKey = "";
+    private bool _probing;
+    private string? _error;
+    private PilotConnectionProbe? _probe;
+    private IReadOnlyList<string> _permissions = [];
+    private DateTimeOffset? _probedAt;
+
+    private bool HasStoredCredential => !string.IsNullOrWhiteSpace(Connection.SecretRef);
+    private bool HasResolvedIds =>
+        !string.IsNullOrWhiteSpace(Connection.ExternalNodeId) &&
+        !string.IsNullOrWhiteSpace(Connection.ExternalLocationId);
+    private bool CanTest => !string.IsNullOrWhiteSpace(_apiKey) || HasStoredCredential;
+    private string? VendorId => _probe?.VendorId ?? Connection.ExternalNodeId;
+    private string? SiteId => _probe?.StoreId ?? Connection.ExternalLocationId;
+    private bool MissingOnlineOrders =>
+        _permissions.Count > 0 &&
+        !_permissions.Contains(PilotConnectionProbe.OnlineOrdersPermission, StringComparer.OrdinalIgnoreCase);
+
+    protected override void OnParametersSet()
+    {
+        if (_probe is not null)
+        {
+            return;
+        }
+
+        _permissions = PilotPosConfig.ReadPermissions(Connection);
+        _probedAt = PilotPosConfig.ReadProbedAt(Connection);
+    }
+
+    private static bool IsOnlineOrders(string permission) =>
+        string.Equals(permission, PilotConnectionProbe.OnlineOrdersPermission, StringComparison.OrdinalIgnoreCase);
+
+    private async Task TestAsync()
+    {
+        _probing = true;
+        _error = null;
+        try
+        {
+            var apiKey = !string.IsNullOrWhiteSpace(_apiKey)
+                ? _apiKey.Trim()
+                : await Secrets.ResolveAsync(Connection.SecretRef, CancellationToken.None);
+
+            _probe = await Tokens.ProbeApiKeyAsync(apiKey, CancellationToken.None);
+            PilotPosConfig.ApplyProbe(Connection, _probe, string.IsNullOrWhiteSpace(_apiKey) ? null : _apiKey);
+            _permissions = _probe.Permissions;
+            _probedAt = DateTimeOffset.UtcNow;
+            Tokens.Invalidate(Connection.Id);
+            await ProbeSucceeded.InvokeAsync(true);
+        }
+        catch (Exception ex)
+        {
+            _probe = null;
+            _error = ex.Message;
+            await ProbeSucceeded.InvokeAsync(false);
+        }
+        finally
+        {
+            _probing = false;
+        }
+    }
+}

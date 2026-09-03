@@ -9,6 +9,7 @@ using Gateway.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace Gateway.Adapters.OrderHarmony.Controllers;
 
@@ -23,7 +24,8 @@ public sealed class OrdersController(
     OrderInjectionUseCase orderInjection,
     MenuSyncUseCase menuSync,
     HealthCheckUseCase healthCheck,
-    IIdempotencyStore idempotencyStore) : ControllerBase
+    IIdempotencyStore idempotencyStore,
+    ILogger<OrdersController> logger) : ControllerBase
 {
     private Guid CurrentStoreId => Guid.Parse(User.FindFirst(LocationKeyAuthenticationDefaults.StoreIdClaimType)!.Value);
 
@@ -32,16 +34,33 @@ public sealed class OrdersController(
     {
         if (!Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKeyValues))
         {
+            logger.LogWarning("POST /orders missing Idempotency-Key header for {OrderRef}", request.OrderRef);
             return BadRequest(new ErrorEnvelope { Code = ErrorEnvelope.Codes.InvalidPayload, Message = "Idempotency-Key header is required.", Retryable = false });
         }
 
         var idempotencyKey = idempotencyKeyValues.ToString();
+        logger.LogInformation(
+            "POST /orders {OrderRef} store={StoreId} idempotency={IdempotencyKey} items={ItemCount}",
+            request.OrderRef, CurrentStoreId, idempotencyKey, request.Items.Count);
 
         // Replay verbatim rather than re-processing (doc 01 §"Idempotency", ARCHITECTURE.md §6).
+        // Only successful 2xx are replayed. A cached Pilot 400 would otherwise hide every
+        // retry (including after we fix the adapter) — failures are allowed to re-run.
         var existing = await idempotencyStore.FindAsync(idempotencyKey, ct);
+        if (existing is not null && existing.ResponseStatusCode is >= 200 and < 300)
+        {
+            logger.LogInformation(
+                "Replaying cached {StatusCode} for {OrderRef} idempotency={IdempotencyKey}",
+                existing.ResponseStatusCode, request.OrderRef, idempotencyKey);
+            return StatusCode(existing.ResponseStatusCode, JsonSerializer.Deserialize<object>(existing.ResponseBodyJson));
+        }
+
         if (existing is not null)
         {
-            return StatusCode(existing.ResponseStatusCode, JsonSerializer.Deserialize<object>(existing.ResponseBodyJson));
+            logger.LogWarning(
+                "Ignoring cached failed {StatusCode} for {OrderRef} idempotency={IdempotencyKey}: {Body}",
+                existing.ResponseStatusCode, request.OrderRef, idempotencyKey, existing.ResponseBodyJson);
+            await idempotencyStore.RemoveAsync(idempotencyKey, ct);
         }
 
         var order = MapToCanonical(request, CurrentStoreId);
@@ -71,9 +90,8 @@ public sealed class OrdersController(
             response = StatusCode(statusCode, body);
         }
 
-        // Only successful/terminal responses are worth caching for replay — a request
-        // that never reached the POS should be allowed to actually retry.
-        if (result.Success || !result.Retryable)
+        // Cache successful injections only (ARCHITECTURE.md §6: replay 200/201).
+        if (result.Success)
         {
             await idempotencyStore.SaveAsync(new IdempotencyRecord
             {
@@ -81,6 +99,12 @@ public sealed class OrdersController(
                 ResponseStatusCode = statusCode,
                 ResponseBodyJson = JsonSerializer.Serialize(body)
             }, ct);
+        }
+        else
+        {
+            logger.LogError(
+                "POST /orders {OrderRef} failed {StatusCode} {ErrorCode}: {Message}",
+                request.OrderRef, statusCode, result.ErrorCode, result.ErrorMessage);
         }
 
         return response;

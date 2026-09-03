@@ -1,5 +1,6 @@
 using Azure.Messaging.ServiceBus;
 using Gateway.Application.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace Gateway.Infrastructure.Messaging;
 
@@ -16,7 +17,10 @@ namespace Gateway.Infrastructure.Messaging;
 /// §14) and the Portal's live-feed subscription (best-effort, just for the
 /// command centre's live ticker — ARCHITECTURE.md §12, UI-ARCHITECTURE.md).
 /// </summary>
-public sealed class OutboxDispatcher(IOutboxRepository outbox, ServiceBusClient serviceBusClient)
+public sealed class OutboxDispatcher(
+    IOutboxRepository outbox,
+    ILogger<OutboxDispatcher> logger,
+    ServiceBusClient? serviceBusClient = null)
 {
     public const string TopicName = "order-events";
     public const string WebhookDeliverySubscription = "webhook-delivery";
@@ -24,12 +28,18 @@ public sealed class OutboxDispatcher(IOutboxRepository outbox, ServiceBusClient 
 
     public async Task DispatchPendingAsync(CancellationToken ct)
     {
+        if (serviceBusClient is null)
+        {
+            return;
+        }
+
         var pending = await outbox.GetUndispatchedAsync(batchSize: 100, ct);
         if (pending.Count == 0)
         {
             return;
         }
 
+        logger.LogDebug("Dispatching {Count} outbox message(s) to {Topic}", pending.Count, TopicName);
         await using var sender = serviceBusClient.CreateSender(TopicName);
         foreach (var message in pending)
         {

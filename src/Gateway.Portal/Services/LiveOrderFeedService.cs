@@ -15,7 +15,7 @@ namespace Gateway.Portal.Services;
 /// a single instance. Revisit if the portal is ever scaled to multiple
 /// instances (UI-ARCHITECTURE.md, "Decided").
 /// </summary>
-public sealed class LiveOrderFeedService(ServiceBusClient serviceBusClient, ILogger<LiveOrderFeedService> logger) : IHostedService
+public sealed class LiveOrderFeedService(ILogger<LiveOrderFeedService> logger, ServiceBusClient? serviceBusClient = null) : IHostedService
 {
     private ServiceBusProcessor? _processor;
 
@@ -23,6 +23,12 @@ public sealed class LiveOrderFeedService(ServiceBusClient serviceBusClient, ILog
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        if (serviceBusClient is null)
+        {
+            logger.LogInformation("Service Bus is not configured — live ticker is idle. Set ConnectionStrings:ServiceBus to enable it.");
+            return;
+        }
+
         _processor = serviceBusClient.CreateProcessor(OutboxDispatcher.TopicName, OutboxDispatcher.PortalLiveFeedSubscription);
         _processor.ProcessMessageAsync += OnMessageAsync;
         _processor.ProcessErrorAsync += args =>

@@ -12,12 +12,12 @@ public class PilotIdempotencyTests
     }
 
     [Fact]
-    public void Derived_order_id_is_always_positive()
+    public void Derived_order_id_fits_pilot_int32()
     {
         for (var i = 0; i < 100; i++)
         {
-            var id = PilotIdempotency.DeriveOrderId($"OH-{i}");
-            Assert.True(id >= 0);
+            var id = PilotIdempotency.DeriveOrderId($"OH-{i}-overflow-check");
+            Assert.InRange(id, 0, int.MaxValue);
         }
     }
 }

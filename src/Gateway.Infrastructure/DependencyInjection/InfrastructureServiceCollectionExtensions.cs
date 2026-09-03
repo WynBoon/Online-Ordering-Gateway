@@ -32,6 +32,11 @@ public static class InfrastructureServiceCollectionExtensions
             services.AddSingleton(new SecretClient(new Uri(keyVaultUri), new DefaultAzureCredential()));
             services.AddScoped<ISecretResolver, KeyVaultSecretResolver>();
         }
+        else
+        {
+            // Local dev: resolve local:// refs from configuration / user secrets.
+            services.AddSingleton<ISecretResolver, ConfigurationSecretResolver>();
+        }
 
         var serviceBusConnection = configuration.GetConnectionString("ServiceBus");
         var serviceBusFullyQualifiedNamespace = configuration["ServiceBus:FullyQualifiedNamespace"];

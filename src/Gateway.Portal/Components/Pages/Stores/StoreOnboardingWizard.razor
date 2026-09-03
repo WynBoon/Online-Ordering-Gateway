@@ -1,9 +1,12 @@
 @page "/stores/new"
 @rendermode InteractiveServer
+@using Gateway.Adapters.Pilot
 @using Gateway.Application.Ports
 @using Gateway.Application.Repositories
 @using Gateway.Domain.Enums
 @using Gateway.Domain.Tenancy
+@using Gateway.Portal.Components.Stores
+@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.DependencyInjection
 @inject IStoreRepository StoreRepository
 @inject Gateway.Infrastructure.Persistence.GatewayDbContext Db
@@ -12,11 +15,8 @@
 
 <PageTitle>Onboard store</PageTitle>
 
-@* One form, five sections — matches the onboarding sequence in ARCHITECTURE.md §7:
-   create -> attach to Group (optional) -> configure connections -> billing ->
-   test connection -> activate. Kept as one page rather than a wizard-control
-   component for the first build; splitting into real steps is a UI polish
-   pass, not a data-model change. *@
+@* One form — matches the onboarding sequence in ARCHITECTURE.md §7.
+   POS for Pilot is a live token probe (API key → vendor/store/permissions), not a Key Vault URI. *@
 
 <MudText Typo="Typo.h4" Class="mb-4">Onboard a store</MudText>
 
@@ -28,35 +28,47 @@
     <MudText Typo="Typo.h6">2. Channel connection (Order Harmony)</MudText>
     <MudTextField T="string" Label="Location key we issue" @bind-Value="_locationKey" Required="true" Class="mb-2" />
     <MudTextField T="string" Label="Webhook URL (issued by Order Harmony per environment)" @bind-Value="_webhookUrl" Required="true" Class="mb-2" />
-    <MudTextField T="string" Label="Signing secret Key Vault reference" @bind-Value="_signingSecretRef" Required="true" Class="mb-4" />
+    <MudTextField T="string" Label="Signing secret reference" @bind-Value="_signingSecretRef" Required="true" Class="mb-4" />
 
     <MudText Typo="Typo.h6">3. POS connection</MudText>
     <MudSelect T="PosType" Label="POS" @bind-Value="_posType" Class="mb-2">
         <MudSelectItem Value="PosType.Pilot">Pilot</MudSelectItem>
         <MudSelectItem Value="PosType.Gaap">GAAP</MudSelectItem>
     </MudSelect>
-    <MudTextField T="string" Label="@NodeIdLabel" @bind-Value="_externalNodeId" Class="mb-2" />
-    <MudTextField T="string" Label="@LocationIdLabel" @bind-Value="_externalLocationId" Class="mb-2" />
-    <MudTextField T="string" Label="Credential Key Vault reference" @bind-Value="_secretRef" Required="true" Class="mb-4" />
 
-    <MudText Typo="Typo.h6">4. Billing</MudText>
+    @if (_posType == PosType.Pilot)
+    {
+        <PilotPosConnectionCard Connection="_posConnection" ProbeSucceeded="OnPilotProbe" />
+    }
+    else
+    {
+        <MudTextField T="string" Label="GAAP nodeId" @bind-Value="_externalNodeId" Class="mb-2" />
+        <MudTextField T="string" Label="GAAP locationId" @bind-Value="_externalLocationId" Class="mb-2" />
+        <MudTextField T="string" Label="GAAP API key" @bind-Value="_gaapApiKey" InputType="InputType.Password" Required="true" Class="mb-4" />
+    }
+
+    <MudText Typo="Typo.h6" Class="mt-4">4. Billing</MudText>
     <MudSelect T="BillingPlanType" Label="Plan type" @bind-Value="_billingPlanType" Class="mb-2">
         <MudSelectItem Value="BillingPlanType.PerTransaction">Per transaction</MudSelectItem>
         <MudSelectItem Value="BillingPlanType.Flat">Flat</MudSelectItem>
     </MudSelect>
     <MudNumericField T="decimal" Label="Rate (ZAR)" @bind-Value="_rateRands" Class="mb-4" />
 
-    <MudText Typo="Typo.h6">5. Test connection &amp; activate</MudText>
-    @if (_testResult is not null)
+    <MudText Typo="Typo.h6">5. Save &amp; activate</MudText>
+    @if (_saveError is not null)
     {
-        <MudAlert Severity="@(_testResult.Healthy ? Severity.Success : Severity.Error)" Class="mb-2">
-            @(_testResult.Healthy ? "Connection OK" : $"Connection failed: {_testResult.Detail}")
+        <MudAlert Severity="Severity.Error" Class="mb-2">@_saveError</MudAlert>
+    }
+    @if (_gaapHealth is not null)
+    {
+        <MudAlert Severity="@(_gaapHealth.Healthy ? Severity.Success : Severity.Error)" Class="mb-2">
+            @(_gaapHealth.Healthy ? "GAAP connection OK" : $"GAAP connection failed: {_gaapHealth.Detail}")
         </MudAlert>
     }
 
     <MudStack Row="true" Class="mt-4">
-        <MudButton Variant="Variant.Outlined" OnClick="SaveAsDraftAndTestAsync">Save as Draft &amp; test connection</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_storeId is null || _testResult?.Healthy != true)" OnClick="ActivateAsync">
+        <MudButton Variant="Variant.Outlined" OnClick="SaveAsDraftAsync">Save as Draft</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanActivate)" OnClick="ActivateAsync">
             Activate
         </MudButton>
     </MudStack>
@@ -67,66 +79,132 @@
     private string _timezone = "Africa/Johannesburg";
     private string _locationKey = "";
     private string _webhookUrl = "";
-    private string _signingSecretRef = "";
+    private string _signingSecretRef = "local://oh-signing-secret";
     private PosType _posType = PosType.Pilot;
     private string _externalNodeId = "";
     private string _externalLocationId = "";
-    private string _secretRef = "";
+    private string _gaapApiKey = "";
     private BillingPlanType _billingPlanType = BillingPlanType.PerTransaction;
     private decimal _rateRands;
     private Guid? _storeId;
-    private HealthResult? _testResult;
-
-    private string NodeIdLabel => _posType == PosType.Gaap ? "GAAP nodeId" : "Pilot vendorId";
-    private string LocationIdLabel => _posType == PosType.Gaap ? "GAAP locationId" : "Pilot siteId";
-
-    private async Task SaveAsDraftAndTestAsync()
+    private bool _pilotProbeOk;
+    private HealthResult? _gaapHealth;
+    private string? _saveError;
+    private readonly PosConnection _posConnection = new()
     {
-        var store = new Store { Name = _name, Timezone = _timezone, State = StoreState.Draft };
-        await StoreRepository.CreateAsync(store, CancellationToken.None);
-        _storeId = store.Id;
+        StoreId = Guid.Empty,
+        PosType = PosType.Pilot,
+        SecretRef = ""
+    };
 
-        Db.ChannelConnections.Add(new ChannelConnection
+    private bool CanActivate => _storeId is not null && (
+        (_posType == PosType.Pilot && _pilotProbeOk && !string.IsNullOrWhiteSpace(_posConnection.SecretRef))
+        || (_posType == PosType.Gaap && _gaapHealth?.Healthy == true));
+
+    private void OnPilotProbe(bool ok) => _pilotProbeOk = ok;
+
+    private async Task SaveAsDraftAsync()
+    {
+        _saveError = null;
+        _gaapHealth = null;
+
+        if (_posType == PosType.Pilot && !_pilotProbeOk)
         {
-            StoreId = store.Id,
-            ChannelType = ChannelType.OrderHarmony,
-            LocationKey = _locationKey,
-            WebhookUrl = _webhookUrl,
-            SigningSecretRef = _signingSecretRef
-        });
+            _saveError = "Test the Pilot connection before saving — vendor and store come from the API key.";
+            return;
+        }
 
-        var posConnection = new PosConnection
-        {
-            StoreId = store.Id,
-            PosType = _posType,
-            ExternalNodeId = _externalNodeId,
-            ExternalLocationId = _externalLocationId,
-            SecretRef = _secretRef
-        };
-        Db.PosConnections.Add(posConnection);
-
-        Db.BillingRates.Add(new BillingRate
-        {
-            StoreId = store.Id,
-            PlanType = _billingPlanType,
-            RateCents = (long)(_rateRands * 100),
-            EffectiveFrom = DateTimeOffset.UtcNow
-        });
-
+        await EnsureStoreAsync();
+        await UpsertChannelAsync();
+        await UpsertPosAsync();
+        await EnsureBillingAsync();
         await Db.SaveChangesAsync();
 
-        var healthAdapter = Services.GetRequiredKeyedService<IPosHealthAdapter>(_posType);
-        _testResult = await healthAdapter.PingAsync(posConnection, CancellationToken.None);
+        if (_posType == PosType.Gaap)
+        {
+            var healthAdapter = Services.GetRequiredKeyedService<IPosHealthAdapter>(PosType.Gaap);
+            _gaapHealth = await healthAdapter.PingAsync(_posConnection, CancellationToken.None);
+        }
     }
 
     private async Task ActivateAsync()
     {
-        if (_storeId is null)
+        if (_storeId is null || !CanActivate)
         {
             return;
         }
 
         await StoreRepository.UpdateStateAsync(_storeId.Value, StoreState.Active, "Activated from onboarding wizard", CancellationToken.None);
-        Nav.NavigateTo("/stores");
+        Nav.NavigateTo($"/stores/{_storeId}");
+    }
+
+    private async Task EnsureStoreAsync()
+    {
+        if (_storeId is null)
+        {
+            var store = new Store { Name = _name, Timezone = _timezone, State = StoreState.Draft };
+            await StoreRepository.CreateAsync(store, CancellationToken.None);
+            _storeId = store.Id;
+            return;
+        }
+
+        var existing = await StoreRepository.GetByIdAsync(_storeId.Value, CancellationToken.None);
+        if (existing is not null)
+        {
+            existing.Name = _name;
+            existing.Timezone = _timezone;
+        }
+    }
+
+    private async Task UpsertChannelAsync()
+    {
+        var channel = await StoreRepository.GetChannelConnectionAsync(_storeId!.Value, CancellationToken.None);
+        if (channel is null)
+        {
+            Db.ChannelConnections.Add(new ChannelConnection
+            {
+                StoreId = _storeId.Value,
+                ChannelType = ChannelType.OrderHarmony,
+                LocationKey = _locationKey,
+                WebhookUrl = _webhookUrl,
+                SigningSecretRef = _signingSecretRef
+            });
+            return;
+        }
+
+        channel.LocationKey = _locationKey;
+        channel.WebhookUrl = _webhookUrl;
+        channel.SigningSecretRef = _signingSecretRef;
+    }
+
+    private async Task UpsertPosAsync()
+    {
+        _posConnection.StoreId = _storeId!.Value;
+        _posConnection.PosType = _posType;
+        if (_posType == PosType.Gaap)
+        {
+            _posConnection.ExternalNodeId = _externalNodeId;
+            _posConnection.ExternalLocationId = _externalLocationId;
+            _posConnection.SecretRef = _gaapApiKey;
+        }
+
+        await StoreRepository.SavePosConnectionAsync(_posConnection, CancellationToken.None);
+    }
+
+    private async Task EnsureBillingAsync()
+    {
+        var hasRate = await Db.BillingRates.AnyAsync(r => r.StoreId == _storeId!.Value);
+        if (hasRate)
+        {
+            return;
+        }
+
+        Db.BillingRates.Add(new BillingRate
+        {
+            StoreId = _storeId!.Value,
+            PlanType = _billingPlanType,
+            RateCents = (long)(_rateRands * 100),
+            EffectiveFrom = DateTimeOffset.UtcNow
+        });
     }
 }

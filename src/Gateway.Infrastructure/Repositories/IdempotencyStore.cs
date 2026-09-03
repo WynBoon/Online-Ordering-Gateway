@@ -15,4 +15,14 @@ public sealed class IdempotencyStore(GatewayDbContext db) : IIdempotencyStore
         db.IdempotencyRecords.Add(record);
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task RemoveAsync(string idempotencyKey, CancellationToken ct)
+    {
+        var existing = await db.IdempotencyRecords.FirstOrDefaultAsync(r => r.IdempotencyKey == idempotencyKey, ct);
+        if (existing is not null)
+        {
+            db.IdempotencyRecords.Remove(existing);
+            await db.SaveChangesAsync(ct);
+        }
+    }
 }

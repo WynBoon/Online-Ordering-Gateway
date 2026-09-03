@@ -1,0 +1,140 @@
+@page "/stores/{StoreId:guid}"
+@rendermode InteractiveServer
+@using Gateway.Adapters.Pilot
+@using Gateway.Application.Repositories
+@using Gateway.Domain.Enums
+@using Gateway.Domain.Tenancy
+@using Gateway.Portal.Components.Stores
+@inject IStoreRepository StoreRepository
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_store?.Name ?? "Store")</PageTitle>
+
+@if (_notFound)
+{
+    <MudAlert Severity="Severity.Error">Store not found.</MudAlert>
+    <MudButton Variant="Variant.Text" Href="/stores" Class="mt-2">Back to stores</MudButton>
+}
+else if (_store is null || _pos is null)
+{
+    <MudText>Loading…</MudText>
+}
+else
+{
+    <div class="d-flex justify-space-between align-center mb-4">
+        <div>
+            <MudButton Variant="Variant.Text" Href="/stores" StartIcon="@Icons.Material.Filled.ArrowBack">Stores</MudButton>
+            <MudText Typo="Typo.h4">@_store.Name</MudText>
+            <MudChip T="string" Size="Size.Small" Color="@StateColor(_store.State)" Class="mt-1">@_store.State</MudChip>
+        </div>
+        @if (_store.State == StoreState.Draft && CanActivate)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ActivateAsync">Activate</MudButton>
+        }
+    </div>
+
+    <MudPaper Class="pa-4" Elevation="1">
+        @if (_pos.PosType == PosType.Pilot)
+        {
+            <PilotPosConnectionCard Connection="_pos" ProbeSucceeded="OnProbeSucceeded" />
+            <MudStack Row="true" Class="mt-4">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(!_probeOkThisSession)"
+                           OnClick="SavePosAsync">
+                    Save POS connection
+                </MudButton>
+            </MudStack>
+            @if (!_probeOkThisSession)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                    Test the connection before saving — that writes vendor, store, and the API key.
+                </MudText>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">
+                GAAP POS configuration is not on this screen yet. This store is wired as @_pos.PosType.
+            </MudAlert>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public Guid StoreId { get; set; }
+
+    private Store? _store;
+    private PosConnection? _pos;
+    private bool _notFound;
+    private Guid _loadedFor;
+    private bool _probeOkThisSession;
+
+    private bool CanActivate =>
+        _pos is not null
+        && _pos.PosType == PosType.Pilot
+        && !string.IsNullOrWhiteSpace(_pos.SecretRef)
+        && !string.IsNullOrWhiteSpace(_pos.ExternalNodeId)
+        && !string.IsNullOrWhiteSpace(_pos.ExternalLocationId);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == StoreId && _store is not null)
+        {
+            return;
+        }
+
+        _store = await StoreRepository.GetByIdAsync(StoreId, CancellationToken.None);
+        if (_store is null)
+        {
+            _notFound = true;
+            return;
+        }
+
+        _pos = await StoreRepository.GetPosConnectionAsync(StoreId, CancellationToken.None)
+               ?? new PosConnection { StoreId = StoreId, PosType = PosType.Pilot, SecretRef = "" };
+        _probeOkThisSession = false;
+        _loadedFor = StoreId;
+    }
+
+    private void OnProbeSucceeded(bool ok) => _probeOkThisSession = ok;
+
+    private async Task SavePosAsync()
+    {
+        if (_pos is null || !_probeOkThisSession)
+        {
+            return;
+        }
+
+        await StoreRepository.SavePosConnectionAsync(_pos, CancellationToken.None);
+        Snackbar.Add("POS connection saved.", Severity.Success);
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_store is null || !CanActivate)
+        {
+            return;
+        }
+
+        if (_probeOkThisSession)
+        {
+            await StoreRepository.SavePosConnectionAsync(_pos!, CancellationToken.None);
+        }
+
+        await StoreRepository.UpdateStateAsync(StoreId, StoreState.Active, "Activated from store POS config", CancellationToken.None);
+        _store.State = StoreState.Active;
+        Snackbar.Add("Store activated.", Severity.Success);
+    }
+
+    private static Color StateColor(StoreState state) => state switch
+    {
+        StoreState.Active => Color.Success,
+        StoreState.Paused => Color.Error,
+        StoreState.Draft => Color.Default,
+        StoreState.Deactivated => Color.Dark,
+        _ => Color.Default
+    };
+}

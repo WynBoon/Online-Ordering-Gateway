@@ -13,7 +13,8 @@ namespace Gateway.Worker.Functions;
 /// Service Bus trigger's own PeekLock/retry/dead-letter handling take over —
 /// no custom backoff loop needed here (ARCHITECTURE.md §14). Session-enabled so
 /// two events for the same store are never processed concurrently or out of
-/// order.
+/// order. Disabled locally via <c>AzureWebJobs.OutboundWebhookDeliveryFunction.Disabled</c>
+/// so <c>func start</c> works without Service Bus (docs/LOCAL-DEV.md).
 /// </summary>
 public sealed class OutboundWebhookDeliveryFunction(
     IStoreRepository storeRepository,

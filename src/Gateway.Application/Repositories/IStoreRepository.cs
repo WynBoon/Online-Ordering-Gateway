@@ -22,4 +22,7 @@ public interface IStoreRepository
 
     Task CreateAsync(Store store, CancellationToken ct);
     Task UpdateStateAsync(Guid storeId, Domain.Enums.StoreState newState, string? reason, CancellationToken ct);
+
+    /// <summary>Insert or replace the store's outbound POS connection.</summary>
+    Task SavePosConnectionAsync(PosConnection connection, CancellationToken ct);
 }

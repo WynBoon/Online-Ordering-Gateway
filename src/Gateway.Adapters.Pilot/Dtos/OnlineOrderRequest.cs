@@ -15,10 +15,9 @@ public sealed class OnlineOrderRequest
     public int SiteId { get; set; }
 
     /// <summary>Our unique number for the order — derived from order_ref, see PilotIdempotency.
-    /// The swagger declares int32 but its own example (1643825010847) overflows int32, so this
-    /// is modelled as a long.</summary>
+    /// Swagger declares int32 (example 1643825010); a long hash overflows and Pilot returns 400.</summary>
     [JsonPropertyName("orderId")]
-    public long OrderId { get; set; }
+    public int OrderId { get; set; }
 
     [JsonPropertyName("orderReference")]
     public string? OrderReference { get; set; }

@@ -26,17 +26,55 @@ public sealed class PilotTokenProvider(HttpClient httpClient, ISecretResolver se
         }
 
         var apiKey = await secretResolver.ResolveAsync(connection.SecretRef, ct);
-        var response = await httpClient.PostAsJsonAsync(
-            $"{_options.BaseUrl}/Authorization/Token",
-            new TokenRequest { ApiKey = apiKey },
-            ct);
-        response.EnsureSuccessStatusCode();
-
-        var token = await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
-            ?? throw new InvalidOperationException("Pilot token endpoint returned an empty response.");
-
+        var token = await ExchangeAsync(apiKey, ct);
         var expiresAt = DateTimeOffset.FromUnixTimeSeconds(token.Exp) - _options.TokenRefreshMargin;
         _cache[connection.Id] = (token.Token, expiresAt);
         return token.Token;
+    }
+
+    /// <summary>
+    /// Onboarding/test path: exchange a pasted (or stored) API key and return vendor,
+    /// store, and permissions. Does not cache or return the JWT.
+    /// </summary>
+    public async Task<PilotConnectionProbe> ProbeApiKeyAsync(string apiKey, CancellationToken ct)
+    {
+        var token = await ExchangeAsync(apiKey, ct);
+        if (string.IsNullOrWhiteSpace(token.VendorId) || string.IsNullOrWhiteSpace(token.StoreId))
+        {
+            throw new InvalidOperationException("Pilot token response did not include VendorId/StoreId.");
+        }
+
+        return new PilotConnectionProbe
+        {
+            VendorId = token.VendorId,
+            StoreId = token.StoreId,
+            Permissions = token.Permissions ?? [],
+            TokenType = token.TokenType,
+            ExpiresAt = DateTimeOffset.FromUnixTimeSeconds(token.Exp)
+        };
+    }
+
+    public void Invalidate(Guid connectionId) => _cache.TryRemove(connectionId, out _);
+
+    private async Task<TokenResponse> ExchangeAsync(string apiKey, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+
+        var response = await httpClient.PostAsJsonAsync(
+            $"{_options.BaseUrl.TrimEnd('/')}/Authorization/Token",
+            new TokenRequest { ApiKey = apiKey.Trim() },
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new HttpRequestException(
+                $"Pilot token endpoint returned {(int)response.StatusCode}: {body}",
+                inner: null,
+                statusCode: response.StatusCode);
+        }
+
+        return await response.Content.ReadFromJsonAsync<TokenResponse>(ct)
+            ?? throw new InvalidOperationException("Pilot token endpoint returned an empty response.");
     }
 }

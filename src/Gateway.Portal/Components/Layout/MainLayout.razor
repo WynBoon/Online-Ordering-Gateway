@@ -7,7 +7,10 @@
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudText Typo="Typo.h6">Order Gateway</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.Dashboard" Color="Color.Inherit" Href="/" Edge="Edge.Start" title="Command centre" />
+        <MudText Typo="Typo.h6">
+            <MudLink Href="/" Color="Color.Inherit" Underline="Underline.None">Order Gateway</MudLink>
+        </MudText>
         <MudSpacer />
         <MudIconButton Icon="@Icons.Material.Filled.Store" Color="Color.Inherit" Href="/stores" title="Stores" />
     </MudAppBar>
