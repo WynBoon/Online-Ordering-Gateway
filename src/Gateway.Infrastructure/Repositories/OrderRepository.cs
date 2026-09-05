@@ -45,6 +45,12 @@ public sealed class OrderRepository(GatewayDbContext db) : IOrderRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CanonicalOrder>> GetOpenOrdersByStoreAsync(Guid storeId, CancellationToken ct) =>
+        await db.Orders
+            .Where(o => o.StoreId == storeId && o.Status != OrderStatus.Completed && o.Status != OrderStatus.Cancelled)
+            .OrderBy(o => o.PlacedAtUtc)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<OrderEvent>> GetRecentEventsAsync(int take, CancellationToken ct) =>
         await db.OrderEvents
             .OrderByDescending(e => e.EventTimeUtc)

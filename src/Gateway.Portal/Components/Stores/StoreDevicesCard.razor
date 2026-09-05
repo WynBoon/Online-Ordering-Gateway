@@ -1,0 +1,213 @@
+@rendermode InteractiveServer
+@using Gateway.Application.Devices
+@using Gateway.Application.Repositories
+@using Gateway.Application.UseCases
+@using Gateway.Domain.Devices
+@using Gateway.Domain.Enums
+@inject DeviceEnrollmentUseCase Enrollment
+@inject IStoreRepository Stores
+@inject IStoreDeviceRepository Devices
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4 mt-4" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-2">In-store devices</MudText>
+    @if (PosType == PosType.Gaap)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            This POS cannot send preparing / ready / completed back to the gateway. Pair a tablet and stipulate which functions it may perform — that tablet is the status of record for Order Harmony.
+        </MudText>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            This POS can callback in principle. A tablet is still useful as a backup status path, with a tighter function set than a GAAP kitchen device.
+        </MudText>
+    }
+
+    <MudText Typo="Typo.subtitle2" Class="mb-1">Functions granted to new devices</MudText>
+    <MudStack Spacing="1" Class="mb-3">
+        @foreach (var descriptor in DeviceFunctionCatalog.All)
+        {
+            var flag = descriptor.Flag;
+            <MudCheckBox T="bool"
+                         Value="@_defaults.HasFlag(flag)"
+                         ValueChanged="@(on => ToggleDefault(flag, on))"
+                         Label="@($"{descriptor.Title} — {descriptor.Description}")"
+                         Dense="true" />
+        }
+    </MudStack>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="SaveDefaultsAsync" Class="mb-4">
+        Save store default
+    </MudButton>
+
+    <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2" Class="mb-3">
+        <MudTextField T="string" @bind-Value="_deviceName" Label="Device name" Class="flex-grow-1" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="IssueAsync" Disabled="@_busy">
+            Issue pairing code
+        </MudButton>
+    </MudStack>
+
+    @if (_issued is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="() => _issued = null">
+            <MudText Typo="Typo.h4" Style="letter-spacing: 0.35em; font-variant-numeric: tabular-nums;">@_issued.EnrollmentCode</MudText>
+            <MudText Typo="Typo.body2">
+                Expires @_issued.ExpiresAtUtc.ToLocalTime().ToString("g"). Enter it on the tablet. Shown once.
+            </MudText>
+        </MudAlert>
+    }
+
+    @if (_devices.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No devices yet.</MudText>
+    }
+    else
+    {
+        <MudTable Items="_devices" Hover="true" Dense="true" Breakpoint="Breakpoint.None">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Heartbeat</MudTh>
+                <MudTh>Functions</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(context)">@context.Status</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Heartbeat">@(context.LastHeartbeatAtUtc?.ToLocalTime().ToString("g") ?? "—")</MudTd>
+                <MudTd DataLabel="Functions">
+                    <MudStack Spacing="0">
+                        @foreach (var descriptor in DeviceFunctionCatalog.All)
+                        {
+                            var device = context;
+                            var flag = descriptor.Flag;
+                            <MudCheckBox T="bool"
+                                         Value="@device.Functions.HasFlag(flag)"
+                                         ValueChanged="@(on => ToggleDeviceAsync(device, flag, on))"
+                                         Label="@descriptor.Title"
+                                         Dense="true"
+                                         Disabled="@(device.Status == DeviceStatus.Revoked)" />
+                        }
+                    </MudStack>
+                </MudTd>
+                <MudTd>
+                    @if (context.Status != DeviceStatus.Revoked)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="() => RevokeAsync(context)">
+                            Revoke
+                        </MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    [Parameter]
+    public Guid StoreId { get; set; }
+
+    [Parameter]
+    public PosType PosType { get; set; }
+
+    private DeviceFunction _defaults = DeviceFunctionSets.KitchenStatusOfRecord;
+    private string _deviceName = "Pass kitchen";
+    private IReadOnlyList<StoreDevice> _devices = [];
+    private IssuedEnrollment? _issued;
+    private bool _busy;
+    private Guid _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == StoreId)
+        {
+            return;
+        }
+
+        await ReloadAsync();
+        _loadedFor = StoreId;
+    }
+
+    private async Task ReloadAsync()
+    {
+        var store = await Stores.GetByIdAsync(StoreId, CancellationToken.None);
+        if (store is not null)
+        {
+            _defaults = store.DefaultDeviceFunctions;
+        }
+
+        _devices = await Devices.ListByStoreAsync(StoreId, CancellationToken.None);
+    }
+
+    private void ToggleDefault(DeviceFunction flag, bool on)
+    {
+        _defaults = on ? _defaults | flag : _defaults & ~flag;
+    }
+
+    private async Task SaveDefaultsAsync()
+    {
+        await Stores.UpdateDefaultDeviceFunctionsAsync(StoreId, _defaults, CancellationToken.None);
+        Snackbar.Add("Store default functions saved. New pairing codes will copy them.", Severity.Success);
+    }
+
+    private async Task IssueAsync()
+    {
+        _busy = true;
+        try
+        {
+            _issued = await Enrollment.IssueAsync(StoreId, _defaults, _deviceName, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ToggleDeviceAsync(StoreDevice device, DeviceFunction flag, bool on)
+    {
+        var next = on ? device.Functions | flag : device.Functions & ~flag;
+        try
+        {
+            await Enrollment.UpdateFunctionsAsync(device.Id, next, CancellationToken.None);
+            device.Functions = next;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task RevokeAsync(StoreDevice device)
+    {
+        try
+        {
+            await Enrollment.RevokeAsync(device.Id, CancellationToken.None);
+            await ReloadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static Color StatusColor(StoreDevice device)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return device.Status switch
+        {
+            DeviceStatus.PendingEnrollment => Color.Warning,
+            DeviceStatus.Active when device.IsOnline(now) => Color.Success,
+            DeviceStatus.Active => Color.Info,
+            DeviceStatus.Suspended => Color.Dark,
+            DeviceStatus.Revoked => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

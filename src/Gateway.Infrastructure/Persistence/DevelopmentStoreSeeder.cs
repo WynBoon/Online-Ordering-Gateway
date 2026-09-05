@@ -1,3 +1,4 @@
+using Gateway.Domain.Devices;
 using Gateway.Domain.Enums;
 using Gateway.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -33,7 +34,8 @@ public static class DevelopmentStoreSeeder
             Name = "Local Dev Kitchen",
             Timezone = "Africa/Johannesburg",
             State = StoreState.Active,
-            StateChangeReason = "Seeded for local development"
+            StateChangeReason = "Seeded for local development",
+            DefaultDeviceFunctions = DeviceFunctionSets.KitchenBackup
         });
         db.ChannelConnections.Add(new ChannelConnection
         {
@@ -66,7 +68,8 @@ public static class DevelopmentStoreSeeder
             Timezone = "Africa/Johannesburg",
             State = StoreState.Paused,
             StateChangedAtUtc = DateTimeOffset.UtcNow,
-            StateChangeReason = "Seeded paused so the command centre has an exception to surface"
+            StateChangeReason = "Seeded paused so the command centre has an exception to surface",
+            DefaultDeviceFunctions = DeviceFunctionSets.KitchenBackup
         });
         db.ChannelConnections.Add(new ChannelConnection
         {

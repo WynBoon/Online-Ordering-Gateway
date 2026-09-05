@@ -15,6 +15,9 @@ public interface IOrderRepository
     /// its callback pushes status changes directly.</summary>
     Task<IReadOnlyList<CanonicalOrder>> GetPendingByPosTypeAsync(PosType posType, CancellationToken ct);
 
+    /// <summary>Non-terminal orders for one store, oldest first — kitchen board.</summary>
+    Task<IReadOnlyList<CanonicalOrder>> GetOpenOrdersByStoreAsync(Guid storeId, CancellationToken ct);
+
     Task<IReadOnlyList<OrderEvent>> GetRecentEventsAsync(int take, CancellationToken ct);
     Task<IReadOnlyList<OrderEvent>> GetRecentEventsByStoreAsync(Guid storeId, int take, CancellationToken ct);
     Task<IReadOnlyList<OrderEvent>> GetEventsByOrderRefAsync(string orderRef, CancellationToken ct);

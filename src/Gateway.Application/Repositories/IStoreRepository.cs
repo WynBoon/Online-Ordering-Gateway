@@ -1,3 +1,4 @@
+using Gateway.Domain.Devices;
 using Gateway.Domain.Tenancy;
 
 namespace Gateway.Application.Repositories;
@@ -25,4 +26,6 @@ public interface IStoreRepository
 
     /// <summary>Insert or replace the store's outbound POS connection.</summary>
     Task SavePosConnectionAsync(PosConnection connection, CancellationToken ct);
+
+    Task UpdateDefaultDeviceFunctionsAsync(Guid storeId, DeviceFunction functions, CancellationToken ct);
 }

@@ -9,11 +9,10 @@ using Microsoft.Extensions.Logging;
 namespace Gateway.Application.UseCases;
 
 /// <summary>
-/// Feeds from two very different sources into one canonical vocabulary: Pilot's
-/// callback receiver calls this directly with a real status; the GAAP status
-/// synthesizer (invoked on a Worker timer) calls this with a synthesized one.
-/// Neither the order pipeline nor Order Harmony can tell the difference —
-/// that's the point of the capability-flag design (ARCHITECTURE.md §3, §5).
+/// Feeds from Pilot callbacks, the GAAP Completed/Cancelled backstop, and
+/// in-store device taps into one canonical vocabulary. Neither the order
+/// pipeline nor Order Harmony can tell the difference — that's the point of
+/// the capability-flag design (ARCHITECTURE.md §3, §5).
 /// </summary>
 public sealed class StatusSyncUseCase(
     IOrderRepository orderRepository,
@@ -25,7 +24,8 @@ public sealed class StatusSyncUseCase(
         string orderRef,
         OrderStatus newStatus,
         CancelReason? cancelReason,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? detail = null)
     {
         var order = await orderRepository.GetByOrderRefAsync(orderRef, ct);
         if (order is null)
@@ -60,7 +60,8 @@ public sealed class StatusSyncUseCase(
             EventId = Guid.NewGuid().ToString(),
             EventType = "order.status_changed",
             Status = newStatus,
-            Outcome = "success"
+            Outcome = "success",
+            Detail = detail
         };
         await orderRepository.AppendEventAsync(statusEvent, ct);
 

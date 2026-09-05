@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="StoreDevice.App.Pages.OrderPage"
+             BackgroundColor="#1C1917">
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="12">
+            <Label x:Name="TitleLabel" TextColor="White" FontSize="28" FontAttributes="Bold" />
+            <Label x:Name="MetaLabel" TextColor="#A8A29E" FontSize="16" />
+            <Label x:Name="NotesLabel" TextColor="#F59E0B" FontSize="16" IsVisible="False" />
+            <VerticalStackLayout x:Name="LinesStack" Spacing="8" />
+
+            <Button x:Name="PreparingButton" Text="Start preparing" Clicked="OnPreparing"
+                    BackgroundColor="#F59E0B" TextColor="#1C1917" HeightRequest="56" FontAttributes="Bold" />
+            <Button x:Name="ReadyButton" Text="Mark ready" Clicked="OnReady"
+                    BackgroundColor="#F59E0B" TextColor="#1C1917" HeightRequest="56" FontAttributes="Bold" />
+            <Button x:Name="CompletedButton" Text="Handed over" Clicked="OnCompleted"
+                    BackgroundColor="#F59E0B" TextColor="#1C1917" HeightRequest="56" FontAttributes="Bold" />
+            <Button x:Name="DelayButton" Text="Running late +5 min" Clicked="OnDelay"
+                    BackgroundColor="#44403C" TextColor="White" HeightRequest="56" />
+            <Button x:Name="CancelButton" Text="Cancel order" Clicked="OnCancel"
+                    BackgroundColor="#7F1D1D" TextColor="White" HeightRequest="56" />
+
+            <Label x:Name="ErrorLabel" TextColor="#EF4444" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

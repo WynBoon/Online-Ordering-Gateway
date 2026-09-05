@@ -1,3 +1,4 @@
+using Gateway.Domain.Devices;
 using Gateway.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -22,6 +23,9 @@ public sealed class StoreConfiguration : IEntityTypeConfiguration<Store>
         builder.HasKey(s => s.Id);
         builder.Property(s => s.Name).HasMaxLength(200);
         builder.Property(s => s.Timezone).HasMaxLength(100);
+        builder.Property(s => s.DefaultDeviceFunctions)
+            .HasConversion<int>()
+            .HasDefaultValue(DeviceFunctionSets.KitchenStatusOfRecord);
         builder.HasIndex(s => s.GroupId);
     }
 }

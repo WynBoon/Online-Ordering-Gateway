@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="StoreDevice.App.Pages.OnboardingPage"
+             BackgroundColor="#1C1917">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="16">
+            <Label Text="Store device"
+                   TextColor="#F59E0B"
+                   FontSize="28"
+                   FontAttributes="Bold" />
+            <Label Text="This tablet reports preparing / ready / completed to the gateway and Order Harmony. The till still gets the kitchen ticket."
+                   TextColor="#A8A29E"
+                   FontSize="16" />
+
+            <Label Text="Gateway URL" TextColor="#A8A29E" />
+            <Entry x:Name="UrlEntry"
+                   Text="{Binding GatewayBaseUrl}"
+                   Keyboard="Url"
+                   TextColor="White"
+                   BackgroundColor="#292524"
+                   HeightRequest="52" />
+
+            <Label Text="Pairing code" TextColor="#A8A29E" />
+            <Entry x:Name="CodeEntry"
+                   Text="{Binding EnrollmentCode}"
+                   Keyboard="Numeric"
+                   MaxLength="6"
+                   Placeholder="000000"
+                   PlaceholderColor="#78716C"
+                   TextColor="White"
+                   BackgroundColor="#292524"
+                   HeightRequest="52"
+                   FontSize="24"
+                   CharacterSpacing="8" />
+
+            <Label Text="Device name" TextColor="#A8A29E" />
+            <Entry Text="{Binding DeviceName}"
+                   TextColor="White"
+                   BackgroundColor="#292524"
+                   HeightRequest="52" />
+
+            <Button Text="Pair this tablet"
+                    Clicked="OnPairClicked"
+                    BackgroundColor="#F59E0B"
+                    TextColor="#1C1917"
+                    FontAttributes="Bold"
+                    HeightRequest="56"
+                    CornerRadius="8" />
+
+            <Label x:Name="ErrorLabel"
+                   Text="{Binding Error}"
+                   TextColor="#EF4444"
+                   FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

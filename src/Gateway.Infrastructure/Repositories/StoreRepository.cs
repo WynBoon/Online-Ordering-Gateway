@@ -1,4 +1,5 @@
 using Gateway.Application.Repositories;
+using Gateway.Domain.Devices;
 using Gateway.Domain.Tenancy;
 using Gateway.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +73,18 @@ public sealed class StoreRepository(GatewayDbContext db) : IStoreRepository
             existing.ExtraConfig = new Dictionary<string, string>(connection.ExtraConfig);
         }
 
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateDefaultDeviceFunctionsAsync(Guid storeId, DeviceFunction functions, CancellationToken ct)
+    {
+        var store = await db.Stores.FirstOrDefaultAsync(s => s.Id == storeId, ct);
+        if (store is null)
+        {
+            return;
+        }
+
+        store.DefaultDeviceFunctions = functions;
         await db.SaveChangesAsync(ct);
     }
 }

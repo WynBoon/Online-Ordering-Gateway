@@ -8,9 +8,9 @@ namespace Gateway.Domain.Capabilities;
 public interface IPosCapabilities
 {
     /// <summary>
-    /// True only for Pilot today, and only pending their confirmation of the
-    /// callback contract (ARCHITECTURE.md §10). When false, the gateway itself
-    /// must own status progression after injection — see GaapStatusSynthesizer.
+    /// True for Pilot (per-order callback). When false, preparing/ready come from
+    /// an onboarded in-store device; GaapStatusSynthesizer may still confirm
+    /// Completed from TENDERED.
     /// </summary>
     bool SupportsRealtimeOrderStatus { get; }
 

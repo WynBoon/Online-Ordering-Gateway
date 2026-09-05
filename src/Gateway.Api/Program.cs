@@ -1,9 +1,11 @@
 using Gateway.Adapters.Gaap;
 using Gateway.Adapters.OrderHarmony;
 using Gateway.Adapters.Pilot;
+using Gateway.Api.Auth;
 using Gateway.Application.UseCases;
 using Gateway.Infrastructure.DependencyInjection;
 using Gateway.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +25,15 @@ builder.Services.AddScoped<OrderInjectionUseCase>();
 builder.Services.AddScoped<MenuSyncUseCase>();
 builder.Services.AddScoped<HealthCheckUseCase>();
 builder.Services.AddScoped<StatusSyncUseCase>();
+builder.Services.AddScoped<DeviceEnrollmentUseCase>();
+builder.Services.AddScoped<DeviceOrderActionUseCase>();
+
+// Additional scheme — do not set DeviceToken as the default or LocationKey
+// (Order Harmony certification) breaks. Device endpoints set this explicitly.
+builder.Services
+    .AddAuthentication()
+    .AddScheme<DeviceTokenAuthenticationSchemeOptions, DeviceTokenAuthenticationHandler>(
+        DeviceTokenAuthenticationDefaults.Scheme, _ => { });
 
 var app = builder.Build();
 

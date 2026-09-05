@@ -70,3 +70,20 @@ To enable webhook delivery locally: stand up a Service Bus topic `order-events` 
 ## What still needs sandboxes
 
 POS credentials (unless you paste a Pilot key on the store page), Order Harmony webhook URLs, and the 14 certification tests. Seeding and Docker SQL only get the processes running.
+
+## 6. In-store device (MAUI)
+
+The tablet is the status of record for preparing / ready / completed. The till still gets the kitchen ticket. Pairing codes are issued by the portal against the database; the tablet talks only to the API (port 5175), never to the portal (port 5083).
+
+1. Run the API (`http://localhost:5175`) and portal (`http://localhost:5083`).
+2. Open a store → **In-store devices** → tick functions → **Issue pairing code**. The six-digit code is shown once and expires in 15 minutes.
+3. On a machine with the MAUI workload:
+
+```powershell
+dotnet build src/StoreDevice.App/StoreDevice.App.csproj -f net8.0-android -p:BuildStoreDeviceMaui=true
+```
+
+Or Visual Studio → Android emulator / Windows. Android builds need the MAUI + Android workload (`BuildStoreDeviceMaui=true`). Without that workload the App project compiles as an empty net8.0 library so `dotnet test Gateway.slnx` stays green — domain/application tests are the gate.
+
+4. Emulator URL is `http://10.0.2.2:5175` (not `127.0.0.1`). Enter the six-digit code and device name.
+5. The device calls `POST /device/enroll`, then heartbeat / orders / actions. Status walks the legal ladder through `StatusSyncUseCase` and Order Harmony webhooks.

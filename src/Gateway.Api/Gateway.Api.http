@@ -1,5 +1,6 @@
 @Gateway.Api_HostAddress = http://localhost:5175
 @LocationKey = dev-local-location-key
+@DeviceToken = replace-after-enroll
 
 ### Health (auth + DB + POS ping — 503 until LocalSecrets:pilot-api-key is set)
 GET {{Gateway.Api_HostAddress}}/health
@@ -42,3 +43,37 @@ Content-Type: application/json
     "prepaid": true
   }
 }
+
+### Device — enroll with a 6-digit pairing code issued from the portal (shown once).
+### Replace the code; do not commit a real device token.
+POST {{Gateway.Api_HostAddress}}/device/enroll
+Content-Type: application/json
+
+{
+  "enrollmentCode": "000000",
+  "deviceName": "Pass kitchen",
+  "hardwareFingerprint": "dev-host"
+}
+
+### Device — heartbeat (replace DeviceToken after enroll)
+# @name deviceHeartbeat
+POST {{Gateway.Api_HostAddress}}/device/heartbeat
+Authorization: Bearer {{DeviceToken}}
+
+### Device — session
+GET {{Gateway.Api_HostAddress}}/device/me
+Authorization: Bearer {{DeviceToken}}
+
+### Device — open orders for this store
+GET {{Gateway.Api_HostAddress}}/device/orders
+Authorization: Bearer {{DeviceToken}}
+
+### Device — mark ready (walks Accepted → Preparing → Ready)
+POST {{Gateway.Api_HostAddress}}/device/orders/OH-LOCAL-001/actions
+Authorization: Bearer {{DeviceToken}}
+Content-Type: application/json
+
+{
+  "action": "ready"
+}
+

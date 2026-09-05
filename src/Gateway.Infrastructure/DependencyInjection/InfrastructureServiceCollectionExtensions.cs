@@ -21,6 +21,7 @@ public static class InfrastructureServiceCollectionExtensions
             options.UseSqlServer(configuration.GetConnectionString("Gateway")));
 
         services.AddScoped<IStoreRepository, StoreRepository>();
+        services.AddScoped<IStoreDeviceRepository, StoreDeviceRepository>();
         services.AddScoped<IOrderRepository, OrderRepository>();
         services.AddScoped<IIdempotencyStore, IdempotencyStore>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();

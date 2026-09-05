@@ -6,12 +6,10 @@ using Microsoft.Extensions.Logging;
 namespace Gateway.Adapters.Gaap;
 
 /// <summary>
-/// GAAP gives no feedback after injection succeeds, so the gateway owns status
-/// progression itself. Implements the recommended two-state approach from
-/// ARCHITECTURE.md §5: <c>Accepted</c> is emitted immediately on injection (see
-/// OrderInjectionUseCase); this class is invoked on a Worker timer to confirm
-/// <c>Completed</c> only once GAAP's own record shows TENDERED — never faking
-/// intermediate Preparing/Ready states.
+/// Preparing/ready come from the in-store device (status of record). This
+/// poller is the Completed/Cancelled backstop only: GAAP <c>TENDERED</c> →
+/// Completed, <c>CANCELED</c> → Cancelled with <c>CancelReason.PosFailure</c>.
+/// Never emit Preparing or Ready from this class.
 /// </summary>
 public sealed class GaapStatusSynthesizer(
     IOrderRepository orderRepository,

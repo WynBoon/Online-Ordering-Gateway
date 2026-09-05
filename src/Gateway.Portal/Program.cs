@@ -54,6 +54,8 @@ builder.Services.AddGatewayInfrastructure(builder.Configuration);
 builder.Services.AddGaapAdapter(builder.Configuration);
 builder.Services.AddPilotAdapter(builder.Configuration);
 builder.Services.AddScoped<StatusSyncUseCase>();
+builder.Services.AddScoped<DeviceEnrollmentUseCase>();
+builder.Services.AddScoped<DeviceOrderActionUseCase>();
 
 // Live feed: Service Bus topic subscription fanned out in-process to connected
 // Blazor circuits — no Azure SignalR Service backplane while the portal runs

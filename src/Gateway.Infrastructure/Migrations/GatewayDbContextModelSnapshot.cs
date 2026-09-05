@@ -22,6 +22,64 @@ namespace Gateway.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Gateway.Domain.Devices.StoreDevice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("EnrolledAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("EnrollmentCodeHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("EnrollmentExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Functions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HardwareFingerprint")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("LastHeartbeatAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("RevokedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnrollmentCodeHash");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("TokenHash");
+
+                    b.ToTable("StoreDevices", (string)null);
+                });
+
             modelBuilder.Entity("Gateway.Domain.Events.OrderEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -341,6 +399,11 @@ namespace Gateway.Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DefaultDeviceFunctions")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(127);
 
                     b.Property<Guid?>("GroupId")
                         .HasColumnType("uniqueidentifier");

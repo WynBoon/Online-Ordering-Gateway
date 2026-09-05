@@ -1,3 +1,4 @@
+using Gateway.Domain.Devices;
 using Gateway.Domain.Events;
 using Gateway.Domain.Idempotency;
 using Gateway.Domain.Orders;
@@ -21,6 +22,7 @@ public sealed class GatewayDbContext(DbContextOptions<GatewayDbContext> options)
     public DbSet<OrderEvent> OrderEvents => Set<OrderEvent>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<StoreDevice> StoreDevices => Set<StoreDevice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -132,33 +132,29 @@ metadata rather than polluting the core model.
 - `CanonicalMenu` — `Category → Product → ModifierGroup(min/max) → Modifier`,
   `externalId` stable across pulls, `taxRateBp`.
 
-## 5. Handling the GAAP gap: synthetic status
+## 5. Handling the GAAP gap: status of record
 
-Because GAAP gives us no feedback after `POST /sales/create` succeeds, the
-gateway can't honestly report `preparing`/`ready` for GAAP-backed locations —
-it doesn't know either of those things happened. Two options, and this is a
-business call, not just a technical one:
+GAAP gives no feedback after `POST /sales/create` succeeds, so the till
+cannot report `preparing` / `ready` / `completed` for GAAP-backed locations.
+Options, and the one we took:
 
-1. **Synthesize a status curve.** On successful injection, immediately emit
-   `accepted`, then emit `completed` after a configurable delay (e.g. average
-   prep time for that location/menu). Order Harmony's tablet/KDS UI will show
-   a plausible progression even though it's not driven by the actual kitchen.
-2. **Collapse to two states.** Emit `accepted` on injection and `completed`
-   only once we have *some* independent signal (e.g. a scheduled poll of
-   `GET /sales` confirming the invoice is `TENDERED` and not `CANCELED`, or a
-   fixed delay). Simpler, less honest-looking but doesn't fake intermediate
-   states.
+1. **Synthesize a curve — rejected.** Emitting preparing/ready on a timer
+   (or from GAAP `TENDERED`) fakes kitchen progress. Order Harmony would
+   show a plausible ladder that never happened.
+2. **Two-state poll — backstop only.** `Accepted` is emitted on injection
+   (`OrderInjectionUseCase`). A Worker timer polls GAAP `GET /sales`:
+   `TENDERED` → `Completed`, `CANCELED` → `Cancelled`. Never emit
+   Preparing/Ready from this class.
+3. **In-store device (industry default, recommended):** inject the kitchen
+   ticket into the POS; pair a tablet as status of record. Same contract as
+   an Otter / Direct tablet. Functions are stipulated per store and
+   snapshotted per device. Taps walk the legal status ladder through
+   `StatusSyncUseCase`, so Order Harmony cannot tell the tablet apart from
+   a Pilot callback.
 
-Recommendation: start with option 2 (poll-confirmed two-state) for
-correctness, and treat option 1 as a UX enhancement once we have real
-prep-time data per location. Either way, **this must be flagged to GAAP** —
-ask whether their platform has a separate real-time channel (kitchen
-display / local till webhook) we haven't seen in this Data-API, since a pure
-BI/accounting API being the only injection path for live orders is unusual.
-
-This logic lives entirely inside `GaapStatusSynthesizer`, invoked by the
-application layer only when `RequiresPrepaidClosedSale` is true — it's not a
-special case in the order pipeline itself.
+This lives in `DeviceOrderActionUseCase` + `StoreDevice` enrollment, not
+`if (posType == Gaap)` in the order pipeline. `GaapStatusSynthesizer` remains
+the Completed/Cancelled backstop only.
 
 ## 6. Idempotency & retries
 

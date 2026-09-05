@@ -1,3 +1,4 @@
+using Gateway.Domain.Devices;
 using Gateway.Domain.Enums;
 
 namespace Gateway.Domain.Tenancy;
@@ -27,4 +28,6 @@ public sealed class Store
     public DateTimeOffset? StateChangedAtUtc { get; set; }
 
     public string? StateChangeReason { get; set; }
+
+    public DeviceFunction DefaultDeviceFunctions { get; set; } = DeviceFunctionSets.KitchenStatusOfRecord;
 }
