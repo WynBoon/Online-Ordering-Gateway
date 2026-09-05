@@ -60,6 +60,7 @@ builder.Services.AddScoped<StatusSyncUseCase>();
 // as a single instance (UI-ARCHITECTURE.md, "Decided").
 builder.Services.AddSingleton<LiveOrderFeedService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<LiveOrderFeedService>());
+builder.Services.AddScoped<PlatformHealthService>();
 
 var app = builder.Build();
 

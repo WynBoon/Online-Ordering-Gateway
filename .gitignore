@@ -3,6 +3,9 @@
 [Oo]bj/
 *.user
 
+# Local zip-deploy output (scripts/Deploy-Uat.ps1)
+.artifacts/
+
 # Azure Functions local dev — never commit real secrets/connection strings
 local.settings.json
 

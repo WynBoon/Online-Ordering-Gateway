@@ -112,20 +112,37 @@ public sealed class PilotOrderAdapter(PilotApiClient client, IOptions<PilotOptio
 
         try
         {
-            await client.CreateOnlineOrderAsync(connection, request, ct);
+            var response = await client.CreateOnlineOrderAsync(connection, request, ct);
             logger.LogInformation("Pilot accepted order {OrderRef} as orderId {OrderId}", order.OrderRef, pilotOrderId);
-            return PosOrderResult.Ok(pilotOrderId.ToString());
+            var detail = FormatPilotDetail(response, pilotOrderId);
+            return PosOrderResult.Ok(pilotOrderId.ToString(), detail);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             logger.LogError(ex, "Pilot rejected order {OrderRef} as unauthorized", order.OrderRef);
-            return PosOrderResult.Fail("unauthorized", "Pilot token rejected.", retryable: false);
+            return PosOrderResult.Fail("unauthorized", "Pilot token rejected.", retryable: false, detail: ex.Message);
         }
         catch (HttpRequestException ex)
         {
             logger.LogError(ex, "Pilot rejected order {OrderRef} ({StatusCode}): {Message}", order.OrderRef, ex.StatusCode, ex.Message);
             var retryable = ex.StatusCode is null or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout;
-            return PosOrderResult.Fail("pos_failure", ex.Message, retryable);
+            return PosOrderResult.Fail("pos_failure", ex.Message, retryable, detail: ex.Message);
         }
+    }
+
+    private static string FormatPilotDetail(StatusResponse response, long pilotOrderId)
+    {
+        var parts = new List<string> { $"posOrderId={pilotOrderId}", $"code={response.Code}" };
+        if (!string.IsNullOrWhiteSpace(response.Message))
+        {
+            parts.Add($"message={response.Message}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(response.Reference))
+        {
+            parts.Add($"reference={response.Reference}");
+        }
+
+        return string.Join("; ", parts);
     }
 }

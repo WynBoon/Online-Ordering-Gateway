@@ -21,6 +21,10 @@ public sealed class OrderEvent
     public required string EventType { get; set; }
     public OrderStatus? Status { get; set; }
     public string? Outcome { get; set; }
+
+    /// <summary>Human-readable POS / adapter detail (truncated). Not a full request/response dump.</summary>
+    public string? Detail { get; set; }
+
     public long? DurationMs { get; set; }
     public DateTimeOffset EventTimeUtc { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -1,0 +1,47 @@
+@using Gateway.Domain.Events
+
+<MudPaper Class="pa-3" Elevation="1">
+    @if (Events.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">No events recorded.</MudText>
+    }
+    else
+    {
+        <MudTimeline TimelinePosition="TimelinePosition.Start">
+            @foreach (var evt in Events)
+            {
+                <MudTimelineItem Color="@(IsSuccess(evt) ? Color.Success : Color.Error)" Size="Size.Small">
+                    <ItemContent>
+                        <div class="d-flex justify-space-between flex-wrap gap-2">
+                            <div>
+                                <MudText Typo="Typo.subtitle2">@evt.EventType</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @evt.EventTimeUtc.ToLocalTime().ToString("g")
+                                    @if (evt.DurationMs is not null)
+                                    {
+                                        <text> · @evt.DurationMs ms</text>
+                                    }
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(evt.Detail))
+                                {
+                                    <MudText Typo="Typo.body2" Class="mt-1">@evt.Detail</MudText>
+                                }
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="@(IsSuccess(evt) ? Color.Success : Color.Error)">
+                                @(evt.Status?.ToString() ?? evt.Outcome ?? "—")
+                            </MudChip>
+                        </div>
+                    </ItemContent>
+                </MudTimelineItem>
+            }
+        </MudTimeline>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<OrderEvent> Events { get; set; } = [];
+
+    private static bool IsSuccess(OrderEvent evt) =>
+        string.Equals(evt.Outcome, "success", StringComparison.OrdinalIgnoreCase);
+}

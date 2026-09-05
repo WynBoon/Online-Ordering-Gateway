@@ -88,23 +88,27 @@ public sealed class GaapOrderAdapter(GaapApiClient client, ILogger<GaapOrderAdap
             // GAAP's 200 response body is just a string per its swagger — the invoice
             // number we sent IS the sale's identifier for later lookup (status
             // synthesizer polls by it), so that's what we treat as the pos_order_id.
-            return PosOrderResult.Ok(order.OrderRef);
+            return PosOrderResult.Ok(order.OrderRef, detail: $"posOrderId={order.OrderRef}");
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
         {
             // 409 duplicate_order: treated as success if it's our own prior attempt,
             // which it is here since externalTransactionId is deterministic (§6).
             logger.LogInformation("GAAP reported duplicate for order {OrderRef} — treating as success", order.OrderRef);
-            return PosOrderResult.Ok(order.OrderRef);
+            return PosOrderResult.Ok(order.OrderRef, detail: $"duplicate; posOrderId={order.OrderRef}");
         }
         catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.NotFound)
         {
-            return PosOrderResult.Fail("unknown_plu", "GAAP could not resolve a node/location/employee/product/payment method.", retryable: false);
+            return PosOrderResult.Fail(
+                "unknown_plu",
+                "GAAP could not resolve a node/location/employee/product/payment method.",
+                retryable: false,
+                detail: ex.Message);
         }
         catch (HttpRequestException ex)
         {
             var retryable = ex.StatusCode is null or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout;
-            return PosOrderResult.Fail("pos_failure", ex.Message, retryable);
+            return PosOrderResult.Fail("pos_failure", ex.Message, retryable, detail: ex.Message);
         }
     }
 }

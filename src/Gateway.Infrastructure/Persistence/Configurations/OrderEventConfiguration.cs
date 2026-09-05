@@ -15,6 +15,9 @@ public sealed class OrderEventConfiguration : IEntityTypeConfiguration<OrderEven
         builder.HasIndex(e => e.EventId).IsUnique();
         builder.HasIndex(e => e.OrderRef);
         builder.HasIndex(e => e.StoreId);
+        builder.HasIndex(e => new { e.StoreId, e.EventTimeUtc });
+        builder.HasIndex(e => e.EventTimeUtc);
+        builder.Property(e => e.Detail).HasMaxLength(4000);
     }
 }
 

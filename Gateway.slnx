@@ -16,5 +16,6 @@
     <Project Path="tests/Gateway.Api.CertificationTests/Gateway.Api.CertificationTests.csproj" />
     <Project Path="tests/Gateway.Application.Tests/Gateway.Application.Tests.csproj" />
     <Project Path="tests/Gateway.Domain.Tests/Gateway.Domain.Tests.csproj" />
+    <Project Path="tests/Gateway.Infrastructure.Tests/Gateway.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

@@ -3,10 +3,13 @@
 @using Gateway.Application.Repositories
 @using Gateway.Domain.Enums
 @using Gateway.Domain.Events
+@using Gateway.Domain.Orders
 @using Gateway.Domain.Tenancy
 @using Gateway.Portal.Services
 @inject IStoreRepository StoreRepository
+@inject IOrderRepository OrderRepository
 @inject LiveOrderFeedService LiveFeed
+@inject PlatformHealthService PlatformHealth
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -16,7 +19,33 @@
    not volume-first (UI-ARCHITECTURE.md, "Decided"). Fleet status grid, live
    ticker, exceptions sorted to the top, rolling KPIs with trend. *@
 
-<MudText Typo="Typo.h4" Class="mb-4">Command Centre</MudText>
+<div class="d-flex justify-space-between align-center mb-2 flex-wrap gap-2">
+    <MudText Typo="Typo.h4">Command Centre</MudText>
+    <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="RefreshHealthAsync" Disabled="_healthLoading">
+        Refresh health
+    </MudButton>
+</div>
+
+<MudPaper Class="pa-3 mb-4" Elevation="1">
+    <MudText Typo="Typo.subtitle2" Class="mb-2">Platform health</MudText>
+    @if (_healthLoading && _health.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Checking dependencies…</MudText>
+    }
+    else
+    {
+        <MudStack Row="true" Spacing="2" Class="flex-wrap">
+            @foreach (var item in _health)
+            {
+                <MudTooltip Text="@(item.Detail ?? item.Name)">
+                    <MudChip T="string" Size="Size.Small" Color="@HealthColor(item.Status)" Icon="@HealthIcon(item.Status)">
+                        @item.Name: @item.Status
+                    </MudChip>
+                </MudTooltip>
+            }
+        </MudStack>
+    }
+</MudPaper>
 
 <MudGrid>
     <MudItem xs="12" md="3">
@@ -76,53 +105,161 @@
     {
         @foreach (var evt in _liveEvents)
         {
-            <div class="d-flex justify-space-between py-1">
-                <MudText Typo="Typo.body2">@evt.EventTimeUtc.ToLocalTime().ToString("T") — @evt.OrderRef — @evt.EventType</MudText>
-                <MudChip T="string" Size="Size.Small" Color="@(evt.Outcome == "success" ? Color.Success : Color.Error)">@(evt.Status?.ToString() ?? evt.Outcome)</MudChip>
+            <div class="d-flex justify-space-between py-1 align-center" style="cursor: pointer"
+                 @onclick="@(() => Nav.NavigateTo($"/orders/{Uri.EscapeDataString(evt.OrderRef)}"))">
+                <MudText Typo="Typo.body2">
+                    @evt.EventTimeUtc.ToLocalTime().ToString("T")
+                    — @StoreName(evt.StoreId)
+                    — @evt.OrderRef
+                    — @evt.EventType
+                    @if (!string.IsNullOrWhiteSpace(evt.Detail))
+                    {
+                        <text> · @Truncate(evt.Detail, 80)</text>
+                    }
+                </MudText>
+                <MudChip T="string" Size="Size.Small" Color="@(IsSuccess(evt) ? Color.Success : Color.Error)">
+                    @(evt.Status?.ToString() ?? evt.Outcome ?? "—")
+                </MudChip>
             </div>
         }
     }
 </MudPaper>
 
+<MudText Typo="Typo.h6" Class="mt-6 mb-2">Recent orders</MudText>
+<MudTable Items="_recentOrders" Hover="true" Dense="true">
+    <HeaderContent>
+        <MudTh>Order ref</MudTh>
+        <MudTh>Store</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>POS id</MudTh>
+        <MudTh>Placed</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Order ref">
+            <MudLink Href="@($"/orders/{Uri.EscapeDataString(context.OrderRef)}")">@context.OrderRef</MudLink>
+        </MudTd>
+        <MudTd DataLabel="Store">@StoreName(context.StoreId)</MudTd>
+        <MudTd DataLabel="Status">@context.Status</MudTd>
+        <MudTd DataLabel="POS id">@(context.PosOrderId ?? "—")</MudTd>
+        <MudTd DataLabel="Placed">@context.PlacedAtUtc.ToLocalTime().ToString("g")</MudTd>
+    </RowTemplate>
+</MudTable>
+
 @code {
     private List<Store> _stores = [];
     private List<Store> _attentionStores = [];
     private readonly List<OrderEvent> _liveEvents = [];
+    private readonly HashSet<string> _seenEventIds = new(StringComparer.Ordinal);
+    private List<CanonicalOrder> _recentOrders = [];
     private int _ordersToday;
-
-    // TODO: wire to the hourly rollups once they exist (ARCHITECTURE.md §12) —
-    // deliberately left null (renders as "—") rather than computed from raw
-    // events, which the design explicitly says not to query for this view.
-    private readonly double? _successRateLastHour = null;
+    private double? _successRateLastHour;
+    private IReadOnlyList<PlatformHealthItem> _health = [];
+    private bool _healthLoading;
 
     protected override async Task OnInitializedAsync()
     {
         _stores = (await StoreRepository.GetAllAsync(CancellationToken.None)).ToList();
         _attentionStores = _stores.Where(s => s.State == StoreState.Paused).ToList();
+
+        _ordersToday = await OrderRepository.CountOrdersTodayAsync(CancellationToken.None);
+        _successRateLastHour = await OrderRepository.GetSuccessRateLastHourAsync(CancellationToken.None);
+        _recentOrders = (await OrderRepository.GetRecentOrdersAsync(25, CancellationToken.None)).ToList();
+
+        foreach (var evt in await OrderRepository.GetRecentEventsAsync(50, CancellationToken.None))
+        {
+            MergeEvent(evt);
+        }
+
         LiveFeed.OrderEventReceived += OnLiveEventAsync;
+
+        _ = LoadHealthAsync(forceRefresh: false);
     }
+
+    private async Task LoadHealthAsync(bool forceRefresh)
+    {
+        _healthLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            _health = await PlatformHealth.GetAsync(forceRefresh, CancellationToken.None);
+        }
+        finally
+        {
+            _healthLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Task RefreshHealthAsync() => LoadHealthAsync(forceRefresh: true);
 
     private Task OnLiveEventAsync(OrderEvent evt)
     {
         return InvokeAsync(() =>
         {
-            _liveEvents.Insert(0, evt);
-            if (_liveEvents.Count > 50)
+            if (!MergeEvent(evt))
             {
-                _liveEvents.RemoveAt(_liveEvents.Count - 1);
+                return;
             }
 
-            if (evt.EventTimeUtc.Date == DateTimeOffset.UtcNow.Date)
+            if (evt.EventTimeUtc.Date == DateTimeOffset.UtcNow.Date
+                && string.Equals(evt.EventType, "order.status_changed", StringComparison.Ordinal)
+                && string.Equals(evt.Outcome, "success", StringComparison.OrdinalIgnoreCase))
             {
-                _ordersToday++;
+                // Prefer not double-counting SQL-seeded orders; only bump for brand-new live accepts
+                // when we do not already have this order in the recent list.
+                if (_recentOrders.All(o => o.OrderRef != evt.OrderRef))
+                {
+                    _ordersToday++;
+                }
             }
 
             StateHasChanged();
         });
     }
 
-    // Exceptions first, then by name — the whole point of a command centre
-    // (UI-ARCHITECTURE.md, "Decided").
+    private bool MergeEvent(OrderEvent evt)
+    {
+        if (!_seenEventIds.Add(evt.EventId))
+        {
+            return false;
+        }
+
+        _liveEvents.Insert(0, evt);
+        if (_liveEvents.Count > 50)
+        {
+            var removed = _liveEvents[^1];
+            _liveEvents.RemoveAt(_liveEvents.Count - 1);
+            _seenEventIds.Remove(removed.EventId);
+        }
+
+        return true;
+    }
+
+    private string StoreName(Guid storeId) =>
+        _stores.FirstOrDefault(s => s.Id == storeId)?.Name ?? storeId.ToString()[..8];
+
+    private static bool IsSuccess(OrderEvent evt) =>
+        string.Equals(evt.Outcome, "success", StringComparison.OrdinalIgnoreCase);
+
+    private static string Truncate(string value, int max) =>
+        value.Length <= max ? value : value[..max] + "…";
+
+    private static Color HealthColor(PlatformHealthStatus status) => status switch
+    {
+        PlatformHealthStatus.Ok => Color.Success,
+        PlatformHealthStatus.Degraded => Color.Warning,
+        PlatformHealthStatus.Fail => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string HealthIcon(PlatformHealthStatus status) => status switch
+    {
+        PlatformHealthStatus.Ok => Icons.Material.Filled.CheckCircle,
+        PlatformHealthStatus.Degraded => Icons.Material.Filled.Warning,
+        PlatformHealthStatus.Fail => Icons.Material.Filled.Error,
+        _ => Icons.Material.Filled.HelpOutline
+    };
+
     private static int FleetSortKey(Store s) => s.State switch
     {
         StoreState.Paused => 0,

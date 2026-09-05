@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Gateway.Application.Ports;
 using Gateway.Application.Repositories;
@@ -48,20 +49,32 @@ public sealed class OrderInjectionUseCase(
         }
 
         var adapter = serviceProvider.GetRequiredKeyedService<IPosOrderAdapter>(connection.PosType);
+        var sw = Stopwatch.StartNew();
         var result = await adapter.CreateOrderAsync(order, connection, ct);
+        sw.Stop();
 
         if (!result.Success)
         {
             logger.LogError(
                 "Order {OrderRef} injection failed for store {StoreId} pos={PosType}: {ErrorCode} {ErrorMessage}",
                 order.OrderRef, store.Id, connection.PosType, result.ErrorCode, result.ErrorMessage);
-            await orderRepository.AppendEventAsync(new OrderEvent
+
+            var failed = new OrderEvent
             {
                 StoreId = store.Id,
                 OrderRef = order.OrderRef,
                 EventId = Guid.NewGuid().ToString(),
                 EventType = "order.injection_failed",
-                Outcome = result.ErrorCode
+                Outcome = result.ErrorCode,
+                Detail = PosOrderResult.Truncate(result.Detail ?? result.ErrorMessage),
+                DurationMs = sw.ElapsedMilliseconds
+            };
+            await orderRepository.AppendEventAsync(failed, ct);
+            await outboxRepository.EnqueueAsync(new OutboxMessage
+            {
+                SessionId = store.Id.ToString(),
+                MessageType = "order.injection_failed",
+                PayloadJson = JsonSerializer.Serialize(failed)
             }, ct);
 
             return OrderInjectionResult.Fail(result.ErrorCode ?? "pos_failure", result.ErrorMessage ?? "Injection failed.", result.Retryable);
@@ -78,7 +91,9 @@ public sealed class OrderInjectionUseCase(
             EventId = Guid.NewGuid().ToString(),
             EventType = "order.status_changed",
             Status = OrderStatus.Accepted,
-            Outcome = "success"
+            Outcome = "success",
+            Detail = PosOrderResult.Truncate(result.Detail ?? $"posOrderId={result.PosOrderId}"),
+            DurationMs = sw.ElapsedMilliseconds
         };
         await orderRepository.AppendEventAsync(accepted, ct);
 

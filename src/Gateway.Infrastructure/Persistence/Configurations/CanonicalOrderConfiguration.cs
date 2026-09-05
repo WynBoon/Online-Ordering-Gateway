@@ -17,6 +17,7 @@ public sealed class CanonicalOrderConfiguration : IEntityTypeConfiguration<Canon
         builder.HasKey("InternalId");
 
         builder.HasIndex(o => o.OrderRef).IsUnique();
+        builder.HasIndex(o => new { o.StoreId, o.PlacedAtUtc });
 
         builder.Property(o => o.Currency).HasMaxLength(3);
 

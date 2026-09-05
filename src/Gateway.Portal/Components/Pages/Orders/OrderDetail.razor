@@ -1,0 +1,80 @@
+@page "/orders/{OrderRef}"
+@rendermode InteractiveServer
+@using Gateway.Application.Repositories
+@using Gateway.Domain.Events
+@using Gateway.Domain.Orders
+@using Gateway.Domain.Tenancy
+@using Gateway.Portal.Components.Orders
+@inject IOrderRepository OrderRepository
+@inject IStoreRepository StoreRepository
+
+<PageTitle>Order @OrderRef</PageTitle>
+
+@if (_loading)
+{
+    <MudText>Loading…</MudText>
+}
+else if (_order is null)
+{
+    <MudAlert Severity="Severity.Error">Order '@OrderRef' was not found.</MudAlert>
+    <MudButton Variant="Variant.Text" Href="/" Class="mt-2">Back to command centre</MudButton>
+}
+else
+{
+    <MudButton Variant="Variant.Text" Href="/" StartIcon="@Icons.Material.Filled.ArrowBack">Command centre</MudButton>
+    <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+        <div>
+            <MudText Typo="Typo.h4">@_order.OrderRef</MudText>
+            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">Display @_order.DisplayId · @_order.SourceChannel</MudText>
+        </div>
+        <MudChip T="string" Color="Color.Primary">@_order.Status</MudChip>
+    </div>
+
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Summary</MudText>
+                <MudText Typo="Typo.body2">Store: @if (_store is not null) { <MudLink Href="@($"/stores/{_store.Id}")">@_store.Name</MudLink> } else { <text>@_order.StoreId</text> }</MudText>
+                <MudText Typo="Typo.body2">Placed: @_order.PlacedAtUtc.ToLocalTime().ToString("g") UTC offset local</MudText>
+                <MudText Typo="Typo.body2">Fulfillment: @_order.FulfillmentType</MudText>
+                <MudText Typo="Typo.body2">Total: @_order.TotalCents cents @_order.Currency</MudText>
+                <MudText Typo="Typo.body2">POS order id: @(_order.PosOrderId ?? "—")</MudText>
+                @if (!string.IsNullOrWhiteSpace(_order.CancelReason?.ToString()))
+                {
+                    <MudText Typo="Typo.body2">Cancel reason: @_order.CancelReason</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mb-2">Event timeline</MudText>
+    <OrderEventTimeline Events="_events" />
+}
+
+@code {
+    [Parameter]
+    public string OrderRef { get; set; } = "";
+
+    private CanonicalOrder? _order;
+    private Store? _store;
+    private IReadOnlyList<OrderEvent> _events = [];
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _order = await OrderRepository.GetByOrderRefAsync(OrderRef, CancellationToken.None);
+        if (_order is not null)
+        {
+            _store = await StoreRepository.GetByIdAsync(_order.StoreId, CancellationToken.None);
+            _events = await OrderRepository.GetEventsByOrderRefAsync(OrderRef, CancellationToken.None);
+        }
+        else
+        {
+            _store = null;
+            _events = [];
+        }
+
+        _loading = false;
+    }
+}
