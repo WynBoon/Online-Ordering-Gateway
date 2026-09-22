@@ -11,6 +11,8 @@
     <Project Path="src/Gateway.Worker/Gateway.Worker.csproj" />
     <Project Path="src/StoreDevice.Core/StoreDevice.Core.csproj" />
     <Project Path="src/StoreDevice.App/StoreDevice.App.csproj" />
+    <Project Path="src/Ordering.Core/Ordering.Core.csproj" />
+    <Project Path="src/Ordering.App/Ordering.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Gateway.Adapters.Gaap.Tests/Gateway.Adapters.Gaap.Tests.csproj" />

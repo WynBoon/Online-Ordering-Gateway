@@ -8,8 +8,8 @@
     FlyoutBehavior="Disabled"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False"
-    Shell.BackgroundColor="#1C1917"
-    Shell.ForegroundColor="#F59E0B">
+    Shell.BackgroundColor="#0B0F14"
+    Shell.ForegroundColor="#5AA9FF">
 
     <ShellContent
         Route="onboarding"

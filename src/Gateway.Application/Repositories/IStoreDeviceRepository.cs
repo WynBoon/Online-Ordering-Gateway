@@ -10,4 +10,5 @@ public interface IStoreDeviceRepository
     Task<IReadOnlyList<StoreDevice>> ListByStoreAsync(Guid storeId, CancellationToken ct);
     Task AddAsync(StoreDevice device, CancellationToken ct);
     Task SaveAsync(StoreDevice device, CancellationToken ct);
+    Task DeleteAsync(StoreDevice device, CancellationToken ct);
 }

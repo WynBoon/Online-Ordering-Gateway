@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:StoreDevice.ViewModels;assembly=StoreDevice.Core"
+             x:Class="StoreDevice.App.Controls.TicketCard"
+             x:DataType="vm:TicketViewModel">
+    <Border StrokeThickness="0"
+            StrokeShape="RoundRectangle 16"
+            BackgroundColor="#1A222C"
+            Padding="0"
+            Margin="0,0,0,12">
+        <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding OpenCommand}" />
+        </Border.GestureRecognizers>
+        <Grid ColumnDefinitions="6,*">
+            <BoxView Color="{Binding StripeColor}" />
+            <VerticalStackLayout Grid.Column="1" Padding="16" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="{Binding DisplayNumber}"
+                           TextColor="#F3F6FA"
+                           FontSize="32"
+                           FontFamily="OpenSansSemibold"
+                           FontAttributes="Bold" />
+                    <Border Grid.Column="1"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 999"
+                            BackgroundColor="{Binding TimerChipColor}"
+                            Padding="12,6"
+                            VerticalOptions="Center">
+                        <Label Text="{Binding TimerText}"
+                               TextColor="#06121F"
+                               FontSize="16"
+                               FontFamily="OpenSansSemibold" />
+                    </Border>
+                </Grid>
+
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="{Binding Identity}" TextColor="#B4BFCC" FontSize="16" VerticalOptions="Center" />
+                    <Border Stroke="#66778A" StrokeThickness="1" StrokeShape="RoundRectangle 999" Padding="10,4">
+                        <Label Text="{Binding FulfillmentLabel}" TextColor="#B4BFCC" FontSize="14" />
+                    </Border>
+                </HorizontalStackLayout>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding VisibleLines}" Spacing="4">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TicketLine">
+                            <Grid ColumnDefinitions="44,*">
+                                <Label Text="{Binding Quantity}"
+                                       TextColor="#F3F6FA"
+                                       FontSize="20"
+                                       FontFamily="OpenSansSemibold" />
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="{Binding Name}" TextColor="#F3F6FA" FontSize="18" LineBreakMode="TailTruncation" MaxLines="2" />
+                                    <Label Text="{Binding Modifiers}" TextColor="#B39DFF" FontSize="15" IsVisible="{Binding HasModifiers}" />
+                                    <Label Text="{Binding Notes}" TextColor="#FFB454" FontSize="14" IsVisible="{Binding HasNotes}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding MoreItemsText}"
+                       TextColor="#5AA9FF"
+                       FontSize="16"
+                       IsVisible="{Binding HasMoreItems}" />
+
+                <Border Stroke="#FFB454"
+                        StrokeThickness="2"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="8"
+                        IsVisible="{Binding HasNote}">
+                    <Label Text="{Binding Order.Notes}" TextColor="#FFB454" FontSize="16" FontAttributes="Italic" />
+                </Border>
+
+                <Label Text="{Binding SyncText}" TextColor="#8593A3" FontSize="13" />
+
+                <Button Text="{Binding PrimaryText}"
+                        Command="{Binding PrimaryCommand}"
+                        BackgroundColor="{Binding PrimaryColor}"
+                        TextColor="#06121F"
+                        FontAttributes="Bold"
+                        FontSize="18"
+                        HeightRequest="64"
+                        CornerRadius="14"
+                        IsVisible="{Binding CanPrimary}"
+                        IsEnabled="{Binding CanTapPrimary}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Border>
+</ContentView>

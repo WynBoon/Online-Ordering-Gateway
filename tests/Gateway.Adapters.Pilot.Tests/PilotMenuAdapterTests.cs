@@ -94,6 +94,38 @@ public class PilotMenuAdapterTests
     }
 
     [Fact]
+    public async Task Excludes_top_level_modify_dtab_products()
+    {
+        var connection = new PosConnection { StoreId = Guid.NewGuid(), SecretRef = "k" };
+        var client = new PilotApiClient(
+            new HttpClient(new StubHandler
+            {
+                ResponseJson = """
+                    {
+                      "status": true,
+                      "PluItems": [
+                        { "Plu": "1001", "ItemName": "Burger", "Price": 85, "Dtab": "MAINS" },
+                        { "Plu": "9001", "ItemName": "Extra cheese", "Price": 10, "Dtab": "MODIFY" },
+                        { "Plu": "9002", "ItemName": "Bacon", "Price": 12, "Dtab": "modify" }
+                      ]
+                    }
+                    """
+            }),
+            new PilotTokenProvider(
+                new HttpClient(new StubHandler { ResponseJson = """{"Token":"t","exp":9999999999}""" }),
+                Mock.Of<ISecretResolver>(s => s.ResolveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()) == Task.FromResult("key")),
+                Options.Create(new PilotOptions { BaseUrl = "https://pilot-qa.test" })),
+            Options.Create(new PilotOptions { BaseUrl = "https://pilot-qa.test" }),
+            NullLogger<PilotApiClient>.Instance);
+
+        var menu = await new PilotMenuAdapter(client).GetMenuAsync(connection, CancellationToken.None);
+
+        Assert.Single(menu.Categories);
+        Assert.Equal("MAINS", menu.Categories[0].Name);
+        Assert.DoesNotContain(menu.Categories, c => c.Name.Equals("MODIFY", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ToCents_rounds_away_from_zero()
     {
         Assert.Equal(8500, PilotMenuAdapter.ToCents(85));

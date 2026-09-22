@@ -155,22 +155,18 @@
     private double? _successRateLastHour;
     private IReadOnlyList<PlatformHealthItem> _health = [];
     private bool _healthLoading;
+    private CancellationTokenSource? _pollCts;
 
     protected override async Task OnInitializedAsync()
     {
         _stores = (await StoreRepository.GetAllAsync(CancellationToken.None)).ToList();
         _attentionStores = _stores.Where(s => s.State == StoreState.Paused).ToList();
 
-        _ordersToday = await OrderRepository.CountOrdersTodayAsync(CancellationToken.None);
-        _successRateLastHour = await OrderRepository.GetSuccessRateLastHourAsync(CancellationToken.None);
-        _recentOrders = (await OrderRepository.GetRecentOrdersAsync(25, CancellationToken.None)).ToList();
-
-        foreach (var evt in await OrderRepository.GetRecentEventsAsync(50, CancellationToken.None))
-        {
-            MergeEvent(evt);
-        }
+        await RefreshBoardAsync();
 
         LiveFeed.OrderEventReceived += OnLiveEventAsync;
+        _pollCts = new CancellationTokenSource();
+        _ = PollBoardAsync(_pollCts.Token);
 
         _ = LoadHealthAsync(forceRefresh: false);
     }
@@ -201,12 +197,12 @@
                 return;
             }
 
+            ApplyStatusToRecent(evt);
+
             if (evt.EventTimeUtc.Date == DateTimeOffset.UtcNow.Date
                 && string.Equals(evt.EventType, "order.status_changed", StringComparison.Ordinal)
                 && string.Equals(evt.Outcome, "success", StringComparison.OrdinalIgnoreCase))
             {
-                // Prefer not double-counting SQL-seeded orders; only bump for brand-new live accepts
-                // when we do not already have this order in the recent list.
                 if (_recentOrders.All(o => o.OrderRef != evt.OrderRef))
                 {
                     _ordersToday++;
@@ -215,6 +211,56 @@
 
             StateHasChanged();
         });
+    }
+
+    private async Task PollBoardAsync(CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await RefreshBoardAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshBoardAsync()
+    {
+        var events = await OrderRepository.GetRecentEventsAsync(50, CancellationToken.None);
+        var orders = (await OrderRepository.GetRecentOrdersAsync(25, CancellationToken.None)).ToList();
+        var today = await OrderRepository.CountOrdersTodayAsync(CancellationToken.None);
+        var rate = await OrderRepository.GetSuccessRateLastHourAsync(CancellationToken.None);
+
+        await InvokeAsync(() =>
+        {
+            foreach (var evt in events.OrderBy(e => e.EventTimeUtc))
+            {
+                MergeEvent(evt);
+            }
+
+            _recentOrders = orders;
+            _ordersToday = today;
+            _successRateLastHour = rate;
+            StateHasChanged();
+        });
+    }
+
+    private void ApplyStatusToRecent(OrderEvent evt)
+    {
+        if (evt.Status is not { } status)
+        {
+            return;
+        }
+
+        var order = _recentOrders.FirstOrDefault(o => o.OrderRef == evt.OrderRef);
+        if (order is not null)
+        {
+            order.Status = status;
+        }
     }
 
     private bool MergeEvent(OrderEvent evt)
@@ -290,5 +336,7 @@
     public void Dispose()
     {
         LiveFeed.OrderEventReceived -= OnLiveEventAsync;
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
     }
 }

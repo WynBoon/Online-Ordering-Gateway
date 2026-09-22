@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="Ordering.App.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:pages="clr-namespace:Ordering.App.Pages"
+    Title="Ordering"
+    FlyoutBehavior="Flyout"
+    Shell.BackgroundColor="#F8FAFC"
+    Shell.ForegroundColor="#0F766E"
+    Shell.TitleColor="#0F172A">
+
+    <FlyoutItem Title="Connect" FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent
+            Title="Connect"
+            Route="connect"
+            ContentTemplate="{DataTemplate pages:ConnectPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Order">
+        <ShellContent
+            Title="Menu"
+            Route="menu"
+            ContentTemplate="{DataTemplate pages:MenuPage}" />
+        <ShellContent
+            Title="Cart"
+            Route="cart"
+            ContentTemplate="{DataTemplate pages:CartPage}" />
+        <ShellContent
+            Title="My orders"
+            Route="orders"
+            ContentTemplate="{DataTemplate pages:OrdersPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Lab">
+        <ShellContent
+            Title="Lab"
+            Route="lab"
+            ContentTemplate="{DataTemplate pages:LabPage}" />
+    </FlyoutItem>
+</Shell>

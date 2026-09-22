@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Gateway.Domain.Enums;
 
@@ -15,7 +18,12 @@ public sealed class GatewayDeviceClient(HttpClient http, IDeviceSessionStore ses
 
     public async Task<DeviceSession> EnrollAsync(string baseUrl, string code, string name, CancellationToken ct = default)
     {
-        var root = baseUrl.TrimEnd('/');
+        var root = baseUrl.Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            throw new InvalidOperationException("Gateway URL is empty.");
+        }
+
         var body = new
         {
             enrollmentCode = code,
@@ -23,21 +31,52 @@ public sealed class GatewayDeviceClient(HttpClient http, IDeviceSessionStore ses
             hardwareFingerprint = Environment.MachineName
         };
 
-        using var response = await http.PostAsJsonAsync($"{root}/device/enroll", body, Json, ct);
-        var claimed = await ReadAsync<ClaimedEnrollmentDto>(response, ct);
-
-        var session = new DeviceSession
+        var url = $"{root}/device/enroll";
+        var started = Stopwatch.StartNew();
+        try
         {
-            GatewayBaseUrl = root,
-            DeviceToken = claimed.DeviceToken,
-            DeviceId = claimed.DeviceId,
-            StoreId = claimed.StoreId,
-            StoreName = claimed.StoreName,
-            DeviceName = claimed.DeviceName,
-            Functions = claimed.Functions
-        };
-        await sessions.SaveAsync(session, ct);
-        return session;
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Version = HttpVersion.Version11,
+                VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+                Content = JsonContent.Create(body, options: Json)
+            };
+
+            using var response = await http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct);
+            var claimed = await ReadAsync<ClaimedEnrollmentDto>(response, ct);
+
+            var session = new DeviceSession
+            {
+                GatewayBaseUrl = root,
+                DeviceToken = claimed.DeviceToken,
+                DeviceId = claimed.DeviceId,
+                StoreId = claimed.StoreId,
+                StoreName = claimed.StoreName,
+                DeviceName = claimed.DeviceName,
+                Functions = claimed.Functions
+            };
+            await sessions.SaveAsync(session, ct);
+            Debug.WriteLine($"Enroll succeeded in {started.ElapsedMilliseconds} ms → store={session.StoreName}");
+            return session;
+        }
+        catch (Exception ex) when (IsTimeout(ex, ct))
+        {
+            throw new InvalidOperationException(
+                $"No HTTP response after {started.Elapsed.TotalSeconds:0}s. " +
+                "The request left the tablet but Azure never answered — common on the Android emulator " +
+                "(IPv6 or TLS). Windows Machine on this PC uses a different network stack and can succeed. " +
+                Describe(ex),
+                ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException(
+                $"Could not reach {url} after {started.Elapsed.TotalSeconds:0}s. " + Describe(ex),
+                ex);
+        }
     }
 
     public Task HeartbeatAsync(CancellationToken ct = default) =>
@@ -85,7 +124,11 @@ public sealed class GatewayDeviceClient(HttpClient http, IDeviceSessionStore ses
     {
         var session = await sessions.GetAsync(ct)
             ?? throw new InvalidOperationException("This tablet is not paired.");
-        var request = new HttpRequestMessage(method, session.GatewayBaseUrl.TrimEnd('/') + path);
+        var request = new HttpRequestMessage(method, session.GatewayBaseUrl.TrimEnd('/') + path)
+        {
+            Version = HttpVersion.Version11,
+            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+        };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.DeviceToken);
         if (body is not null)
         {
@@ -120,6 +163,34 @@ public sealed class GatewayDeviceClient(HttpClient http, IDeviceSessionStore ses
             // fall through to status-code fallback
         }
 
-        throw new InvalidOperationException(message ?? $"Gateway returned {response.StatusCode}");
+        throw new InvalidOperationException(
+            string.IsNullOrWhiteSpace(message)
+                ? $"Gateway returned {(int)response.StatusCode} {response.StatusCode}."
+                : $"Gateway returned {(int)response.StatusCode}: {message}");
+    }
+
+    private static bool IsTimeout(Exception ex, CancellationToken ct) =>
+        ex is OperationCanceledException or TimeoutException
+            or HttpRequestException { InnerException: OperationCanceledException or TimeoutException }
+        || ct.IsCancellationRequested;
+
+    private static string Describe(Exception ex)
+    {
+        var parts = new StringBuilder();
+        for (var current = ex; current is not null; current = current.InnerException)
+        {
+            if (parts.Length > 0)
+            {
+                parts.Append(" → ");
+            }
+
+            parts.Append(current.GetType().Name);
+            if (!string.IsNullOrWhiteSpace(current.Message))
+            {
+                parts.Append(": ").Append(current.Message.Trim());
+            }
+        }
+
+        return parts.ToString();
     }
 }

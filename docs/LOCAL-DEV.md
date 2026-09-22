@@ -43,6 +43,10 @@ dotnet user-secrets set "LocalSecrets:pilot-api-key" "<pilot-global-api-key>" --
 
 Repeat for `src/Gateway.Portal` and `src/Gateway.Worker` if you run those.
 
+**Pilot menu:** `GET /menu` reshapes Pilot's `{ PluItems: [...] }` into OH categories. Prices are major units on Pilot → **cents** on the channel. Top-level rows with `Dtab = MODIFY` are the till's modifier catalogue and are **excluded** — sellable modifiers come from each product's `Options`.
+
+**Pilot callbacks:** inject sends `callbackUrl` only when `Pilot:CallbackBaseUrl` is set (env `Pilot__CallbackBaseUrl`). Value should be a public base the till can reach (ngrok / App Service), e.g. `https://your-host` → Pilot posts to `{base}/pilot/callback/{orderRef}`. Empty (the local default) means **no callback URL** — after **accepted**, walk status with the [in-store device](user-manuals/in-store-device.md) instead.
+
 ## 4. Run the portal (optional)
 
 ```powershell
@@ -79,11 +83,36 @@ The tablet is the status of record for preparing / ready / completed. The till s
 2. Open a store → **In-store devices** → tick functions → **Issue pairing code**. The six-digit code is shown once and expires in 15 minutes.
 3. On a machine with the MAUI workload:
 
+In **Visual Studio**, close and reopen the solution, set **StoreDevice.App** as the startup project, then pick an **Android emulator** or **Windows Machine** from the debug dropdown. The app targets `net10.0-android` / `net10.0-windows` to match the installed MAUI workloads (a `net8.0-android` target will not appear).
+
+From the CLI:
+
 ```powershell
-dotnet build src/StoreDevice.App/StoreDevice.App.csproj -f net8.0-android -p:BuildStoreDeviceMaui=true
+dotnet build src/StoreDevice.App/StoreDevice.App.csproj -f net10.0-windows10.0.19041.0 -p:BuildStoreDeviceMaui=true
+dotnet build src/StoreDevice.App/StoreDevice.App.csproj -f net10.0-android -p:BuildStoreDeviceMaui=true
 ```
 
-Or Visual Studio → Android emulator / Windows. Android builds need the MAUI + Android workload (`BuildStoreDeviceMaui=true`). Without that workload the App project compiles as an empty net8.0 library so `dotnet test Gateway.slnx` stays green — domain/application tests are the gate.
+Without the MAUI workload, CLI `dotnet test Gateway.slnx` still compiles StoreDevice.App as an empty net8.0 library so gateway tests stay green.
 
-4. Emulator URL is `http://10.0.2.2:5175` (not `127.0.0.1`). Enter the six-digit code and device name.
-5. The device calls `POST /device/enroll`, then heartbeat / orders / actions. Status walks the legal ladder through `StatusSyncUseCase` and Order Harmony webhooks.
+The onboarding **Gateway URL** defaults to UAT (`https://moog-api-cehvddbad6c0f8gd.southafricanorth-01.azurewebsites.net`). For a local API on the emulator use `http://10.0.2.2:5175`. Pairing codes must come from the same environment's portal.
+
+4. The device calls `POST /device/enroll`, then heartbeat / orders / actions. Status walks the legal ladder through `StatusSyncUseCase` and Order Harmony webhooks.
+
+If the Android emulator times out pairing to UAT: Chrome in the emulator and open `https://moog-api-cehvddbad6c0f8gd.southafricanorth-01.azurewebsites.net/device/enroll` — if that also hangs, cold-boot the AVD (or debug **Windows Machine** instead). The emulator cannot use a Windows loopback proxy (Fiddler / corporate proxy on 127.0.0.1).
+
+## 7. Ordering app (Harmony stand-in, MAUI)
+
+This is **not** the kitchen tablet. `Ordering.App` pretends to be Order Harmony: `GET /menu` (items + modifier options), `POST /orders`, then polls `GET /orders/{order_ref}` for `accepted → preparing → ready → completed`. Kitchen taps still happen on Store Device.
+
+The Connect screen defaults to UAT (`https://moog-api-cehvddbad6c0f8gd.southafricanorth-01.azurewebsites.net`). A leftover localhost session is rewritten to UAT on load. Paste the **UAT store location key** from the portal (not `dev-local-location-key`).
+
+1. In **Visual Studio**, set **Ordering.App** as the startup project, then pick **Windows Machine** or an **Android emulator**. Same `net10.0-*` / `BuildOrderingMaui` trick as Store Device.
+
+```powershell
+dotnet build src/Ordering.App/Ordering.App.csproj -f net10.0-windows10.0.19041.0 -p:BuildOrderingMaui=true
+dotnet build src/Ordering.App/Ordering.App.csproj -f net10.0-android -p:BuildOrderingMaui=true
+```
+
+Connect → paste the UAT location key → menu from the till → checkout. Walk status on Store Device against the same UAT store. For a local API instead, type `http://localhost:5175` (emulator: `http://10.0.2.2:5175`) and use `dev-local-location-key`.
+
+See `docs/user-manuals/ordering-app.md`.

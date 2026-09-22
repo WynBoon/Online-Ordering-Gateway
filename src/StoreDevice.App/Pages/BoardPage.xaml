@@ -1,40 +1,129 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:StoreDevice.ViewModels;assembly=StoreDevice.Core"
+             xmlns:controls="clr-namespace:StoreDevice.App.Controls"
              x:Class="StoreDevice.App.Pages.BoardPage"
-             BackgroundColor="#1C1917">
-    <Grid RowDefinitions="Auto,*" Padding="16" RowSpacing="12">
-        <VerticalStackLayout Grid.Row="0" Spacing="8">
-            <Label x:Name="StoreLabel" TextColor="#F59E0B" FontSize="24" FontAttributes="Bold" />
-            <Label x:Name="FunctionsLabel" TextColor="#A8A29E" FontSize="14" />
-            <HorizontalStackLayout Spacing="12">
-                <Button Text="Refresh" Clicked="OnRefreshClicked"
-                        BackgroundColor="#44403C" TextColor="White" HeightRequest="48" />
-                <Button Text="Unpair" Clicked="OnUnpairClicked"
-                        BackgroundColor="#44403C" TextColor="#F59E0B" HeightRequest="48" />
+             x:DataType="vm:BoardViewModel"
+             BackgroundColor="#0B0F14">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <Grid Padding="16,12" ColumnDefinitions="*,Auto,Auto,Auto" HeightRequest="72" BackgroundColor="#121820">
+            <VerticalStackLayout VerticalOptions="Center">
+                <Label Text="MOOG" TextColor="#8593A3" FontSize="12" CharacterSpacing="2" />
+                <Label Text="{Binding StoreName}" TextColor="#F3F6FA" FontSize="18" FontFamily="OpenSansSemibold" />
+            </VerticalStackLayout>
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center" Margin="0,0,16,0">
+                <BoxView WidthRequest="10" HeightRequest="10" CornerRadius="5" Color="{Binding ConnectionColor}" />
+                <Label Text="{Binding Connection}" TextColor="#B4BFCC" FontSize="14" VerticalOptions="Center" />
             </HorizontalStackLayout>
-            <Label x:Name="ErrorLabel" TextColor="#EF4444" FontSize="16" />
-        </VerticalStackLayout>
+            <Button Grid.Column="2"
+                    Text="Refresh"
+                    Clicked="OnRefreshClicked"
+                    BackgroundColor="#232D39"
+                    TextColor="#F3F6FA"
+                    HeightRequest="56"
+                    WidthRequest="120"
+                    CornerRadius="14"
+                    FontSize="14" />
+            <Label Grid.Column="3"
+                   Text="{Binding Clock}"
+                   TextColor="#F3F6FA"
+                   FontSize="22"
+                   FontFamily="OpenSansSemibold"
+                   VerticalOptions="Center"
+                   Margin="16,0,8,0" />
+        </Grid>
 
-        <CollectionView x:Name="OrdersView" Grid.Row="1" SelectionMode="Single" SelectionChanged="OnOrderSelected">
-            <CollectionView.EmptyView>
-                <Label Text="No open orders. New channel orders still print on the till; this screen is the status path."
-                       TextColor="#A8A29E"
-                       FontSize="16"
-                       Margin="8" />
-            </CollectionView.EmptyView>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="12" Margin="0,0,0,8" BackgroundColor="#292524" ColumnDefinitions="*,Auto">
-                        <VerticalStackLayout>
-                            <Label Text="{Binding DisplayId}" TextColor="White" FontSize="22" FontAttributes="Bold" />
-                            <Label Text="{Binding CustomerName}" TextColor="#A8A29E" FontSize="16" />
-                            <Label Text="{Binding Fulfillment}" TextColor="#A8A29E" FontSize="14" />
-                        </VerticalStackLayout>
-                        <Label Grid.Column="1" Text="{Binding Status}" TextColor="#F59E0B" FontSize="16" VerticalOptions="Center" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+        <Border Grid.Row="1"
+                BackgroundColor="#5AA9FF"
+                Padding="16,12"
+                IsVisible="{Binding HasBanner}">
+            <Label Text="{Binding BannerText}"
+                   TextColor="#06121F"
+                   FontSize="20"
+                   FontFamily="OpenSansSemibold"
+                   HorizontalOptions="Center" />
+        </Border>
+
+        <Label Grid.Row="2"
+               Text="{Binding PaceLine}"
+               TextColor="#8593A3"
+               FontSize="14"
+               Padding="16,8"
+               BackgroundColor="#121820" />
+
+        <Grid x:Name="ColumnsGrid" Grid.Row="3" ColumnDefinitions="*,*,*" Padding="12,8" ColumnSpacing="12">
+            <Grid Grid.Column="0" RowDefinitions="48,*">
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <BoxView WidthRequest="10" HeightRequest="10" CornerRadius="5" Color="#5AA9FF" />
+                    <Label Text="NEW" TextColor="#B4BFCC" FontSize="16" FontFamily="OpenSansSemibold" CharacterSpacing="1" />
+                    <Label Text="{Binding NewCount}" TextColor="#F3F6FA" FontSize="16" FontFamily="OpenSansSemibold" />
+                </HorizontalStackLayout>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding NewTickets}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TicketViewModel">
+                            <controls:TicketCard />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.EmptyView>
+                        <Label Text="No new tickets" TextColor="#8593A3" FontSize="16" Margin="8,24" />
+                    </CollectionView.EmptyView>
+                </CollectionView>
+            </Grid>
+            <Grid Grid.Column="1" RowDefinitions="48,*">
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <BoxView WidthRequest="10" HeightRequest="10" CornerRadius="5" Color="#B39DFF" />
+                    <Label Text="PREPARING" TextColor="#B4BFCC" FontSize="16" FontFamily="OpenSansSemibold" CharacterSpacing="1" />
+                    <Label Text="{Binding PrepCount}" TextColor="#F3F6FA" FontSize="16" FontFamily="OpenSansSemibold" />
+                </HorizontalStackLayout>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding PrepTickets}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TicketViewModel">
+                            <controls:TicketCard />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.EmptyView>
+                        <Label Text="Kitchen is clear" TextColor="#8593A3" FontSize="16" Margin="8,24" />
+                    </CollectionView.EmptyView>
+                </CollectionView>
+            </Grid>
+            <Grid Grid.Column="2" RowDefinitions="48,*">
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <BoxView WidthRequest="10" HeightRequest="10" CornerRadius="5" Color="#4ADE80" />
+                    <Label Text="READY" TextColor="#B4BFCC" FontSize="16" FontFamily="OpenSansSemibold" CharacterSpacing="1" />
+                    <Label Text="{Binding ReadyCount}" TextColor="#F3F6FA" FontSize="16" FontFamily="OpenSansSemibold" />
+                </HorizontalStackLayout>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding ReadyTickets}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:TicketViewModel">
+                            <controls:TicketCard />
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.EmptyView>
+                        <Label Text="Nothing waiting" TextColor="#8593A3" FontSize="16" Margin="8,24" />
+                    </CollectionView.EmptyView>
+                </CollectionView>
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="4" Padding="16,8" ColumnDefinitions="*,Auto,Auto" BackgroundColor="#121820">
+            <Label Text="{Binding Error}" TextColor="#FF6B6B" FontSize="15" VerticalOptions="Center" />
+            <Border Grid.Column="1"
+                    BackgroundColor="#232D39"
+                    StrokeShape="RoundRectangle 14"
+                    Padding="16,10"
+                    Margin="8,0"
+                    IsVisible="{Binding HasSnackbar}">
+                <Label Text="{Binding Snackbar}" TextColor="#F3F6FA" FontSize="16" />
+            </Border>
+            <Button Grid.Column="2"
+                    Text="Unpair"
+                    Clicked="OnUnpairClicked"
+                    BackgroundColor="#232D39"
+                    TextColor="#FFB454"
+                    HeightRequest="56"
+                    WidthRequest="120"
+                    CornerRadius="14" />
+        </Grid>
     </Grid>
 </ContentPage>

@@ -83,6 +83,32 @@ function Write-Step([string] $Message) {
     Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function New-UnixZipFromDirectory {
+    param(
+        [Parameter(Mandatory)] [string] $SourceDirectory,
+        [Parameter(Mandatory)] [string] $ZipPath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $root = (Resolve-Path $SourceDirectory).Path.TrimEnd('\', '/')
+    $zip = [System.IO.Compression.ZipFile]::Open($ZipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem -Path $root -Recurse -File | ForEach-Object {
+            $relative = $_.FullName.Substring($root.Length).TrimStart('\', '/').Replace('\', '/')
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $zip,
+                $_.FullName,
+                $relative,
+                [System.IO.Compression.CompressionLevel]::Optimal)
+        }
+    }
+    finally {
+        $zip.Dispose()
+    }
+}
+
 Assert-Command "dotnet"
 Assert-Command "az"
 
@@ -146,8 +172,9 @@ foreach ($target in $Targets) {
     if (Test-Path $zipPath) {
         Remove-Item -Force $zipPath
     }
-    # Compress contents of the publish folder (not the folder itself).
-    Compress-Archive -Path (Join-Path $outDir "*") -DestinationPath $zipPath -Force
+    # Compress-Archive writes Windows backslashes in zip entries. Linux App
+    # Service rsync then fails with "Invalid argument (22)" on those paths.
+    New-UnixZipFromDirectory -SourceDirectory $outDir -ZipPath $zipPath
 
     Write-Step "Deploying $target to $($app.AzureName) ($($app.Kind))"
     if ($app.Kind -eq "functionapp") {

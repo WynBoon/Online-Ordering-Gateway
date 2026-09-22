@@ -38,16 +38,17 @@ Product IDs are a **passthrough**. `GET /menu` `external_id` values **are** the 
 
 ---
 
-## 3. Current status (as of 2026-09-01)
+## 3. Current status
 
-Proven end-to-end against **Pilot QA** through this channel: menu pull, health (once a Pilot key is saved), and order injection (`POST /OnlineOrder/Create` returned `Status: true`, till reference issued).
+Proven end-to-end against **Pilot QA** through this channel: menu pull, health (once a Pilot key is saved), and order injection (`POST /OnlineOrder/Create` returned `Status: true`, till reference issued). Kitchen status beyond **accepted** is walked with the [in-store device](in-store-device.md) (or Pilot callback when `Pilot:CallbackBaseUrl` is set).
 
 | Capability | Status |
 |---|---|
 | `Authorization: Bearer {location_key}` | Done |
 | `GET /health` | Done — pings the bound POS |
-| `GET /menu` | Done — Pilot catalogue reshaped into OH category tree |
-| `POST /orders` + `Idempotency-Key` | Done — injects to Pilot; **201** cached for 24h |
+| `GET /menu` | Done — Pilot `{ PluItems }` reshaped; `MODIFY` top-level rows excluded |
+| `POST /orders` + `Idempotency-Key` | Done — injects to Pilot; successful **201** cached for 24h (failures not sticky) |
+| `GET /orders`, `GET /orders/{order_ref}` | Done — Harmony stand-in convenience (same five status strings) |
 | Error envelope `{ code, message, retryable }` | Done |
 | Store-state gate (Draft / Paused / Deactivated reject orders) | Done |
 | Outbound signed status webhooks | **Code exists**; delivery needs Service Bus + Worker + a real OH webhook URL |
@@ -108,8 +109,12 @@ There is **no URL prefix**. Controllers map:
 | `GET` | `/health` | connection-card / probe | Bearer location key |
 | `GET` | `/menu` | **30s** | Bearer location key |
 | `POST` | `/orders` | **10s** | Bearer location key + `Idempotency-Key` |
+| `GET` | `/orders` | — | Bearer location key |
+| `GET` | `/orders/{order_ref}` | — | Bearer location key |
 
 The store is resolved **only** from the Bearer key, not from `location_id` in the JSON body. The body field is accepted for their payload shape but is not trusted.
+
+`GET /orders` and `GET /orders/{order_ref}` are a **Harmony stand-in convenience** (same five status strings as webhooks, scoped to this store). Real Order Harmony can ignore them — status for production OH remains signed webhooks.
 
 ### 5.1 Authentication
 
@@ -166,6 +171,12 @@ Pulls the bound POS catalogue and returns Order Harmony’s tree. Money is **int
   ]
 }
 ```
+
+**Pilot mapping notes:**
+
+- Pilot returns an object with **`PluItems`**, not a raw array. We group by `Dtab` into categories.
+- Top-level rows with **`Dtab = MODIFY`** are Pilot's modifier catalogue, not sellable products — they are **excluded** from `/menu`. Modifiers on the channel come from each product's **`Options`** / option items (PLUs pass through).
+- Pilot `Price` is in **major currency units**; the channel always exposes **integer cents** (`price_cents` / `price_delta_cents`).
 
 **Rules for Order Harmony:**
 
@@ -294,7 +305,9 @@ Content-Type: application/json
 }
 ```
 
-`pos_order_id` is the id we use on our side (for Pilot, a derived numeric `orderId`). Pilot may also return their own till reference in logs (`Reference`); we do not currently put that on the 201 body.
+`pos_order_id` is the id we use on our side. For Pilot it is a **SHA256-derived int32** (`PilotIdempotency.DeriveOrderId` from `order_ref`) — Pilot rejects non-int32 `orderId` values. Pilot may also return their own till reference in logs (`Reference`); we do not currently put that on the 201 body.
+
+When `Pilot:CallbackBaseUrl` (env `Pilot__CallbackBaseUrl`) is set, inject includes `callbackUrl` = `{base}/pilot/callback/{order_ref}`. When empty, no callback URL is sent (local default).
 
 For **delivery**, include `delivery_address.line1` (and city / postal as available). We map `fulfillment_type` to Pilot as `Collect` / `Delivery` / `Inhouse`.
 
@@ -333,7 +346,7 @@ On **503** with `retryable: true`, Order Harmony should retry with the **same** 
 
 ## 7. Outbound status webhooks
 
-After a successful inject we record **Accepted** and enqueue `order.status_changed`. Further states come from the POS (Pilot callback → our `StatusSyncUseCase`) or, for GAAP later, a synthesizer.
+After a successful inject we record **Accepted** and enqueue `order.status_changed`. Further states come from the [in-store device](in-store-device.md) (status of record), or from a Pilot till callback when `callbackUrl` was supplied (`POST /pilot/callback/{order_ref}` → `StatusSyncUseCase`). For GAAP, a worker poll is a **Completed / Cancelled backstop only** (`GaapStatusSynthesizer`) — it never invents preparing / ready.
 
 ### Payload (doc 02 §3)
 
@@ -386,7 +399,7 @@ accepted → preparing → ready → completed
 
 `completed` and `cancelled` are terminal. Same-status replays are no-ops.
 
-Pilot: till callbacks map into this enum (only `statusCode` **2 = Pending → accepted** is confirmed; other codes are rejected rather than guessed). GAAP: no live kitchen feed — synthesizer later.
+Pilot: till callbacks map into this enum (only `statusCode` **2 = Pending → accepted** is confirmed; other codes are rejected rather than guessed). Kitchen progress in practice is the in-store device. GAAP: no live kitchen feed — `GaapStatusSynthesizer` polls `TENDERED` → `completed` and `CANCELED` → `cancelled` only; preparing / ready require the device.
 
 ---
 
@@ -420,7 +433,7 @@ Inbound inject/menu/health against a live Pilot till is done. To close Phase 2 e
 1. **Environment** — public (or VPN) API base URL Order Harmony can call; static egress IPs if they allow-list us.
 2. **Webhook URL + signing secret** exchanged for at least one sandbox location.
 3. **Service Bus** topic `order-events`, subscriptions `webhook-delivery` (sessions) and `portal-live-feed`; Worker function enabled.
-4. **Pilot status codes** beyond Pending, and callback payload confirmation — otherwise we cannot honestly emit `preparing` / `ready` / `completed`.
+4. **Pilot status codes** beyond Pending, and callback payload confirmation — otherwise we cannot honestly emit `preparing` / `ready` / `completed` from the till alone. Until then, use the in-store device (and set `Pilot:CallbackBaseUrl` when you want till callbacks).
 5. Turn the 14 skipped tests in `tests/Gateway.Api.CertificationTests` into real runs (Phase 3).
 
 ---

@@ -1,16 +1,27 @@
 # Solution Scaffold — What Was Built
 
+> **Historical snapshot (2026-08-20).** This records the first scaffold pass.
+> For current layout, runbooks, and behaviour see `docs/LOCAL-DEV.md`,
+> `docs/user-manuals/`, and `docs/architecture/ARCHITECTURE.md`. Project
+> counts, test counts, and “what’s not done” below are frozen as of that
+> date and will drift.
+
 **Date:** 2026-08-20
 **Scope:** Full .NET solution scaffold, generated in one pass from the design
 already agreed in `architecture/ARCHITECTURE.md` and `architecture/UI-ARCHITECTURE.md`.
 
 ## 1. What exists
 
-14 projects under `Gateway.slnx` (a `.slnx` file, not `.sln` — the .NET 10
-SDK's default solution format; `dotnet sln`/`dotnet build` work with it the
-same way). All target **.NET 8** — not .NET 10, even though that's the SDK
-installed — because the Azure Functions Worker SDK only lists .NET 10 as
-Preview; .NET 8 is the LTS both App Service and Functions fully support.
+At scaffold time: **14** projects under `Gateway.slnx` (a `.slnx` file, not
+`.sln` — the .NET 10 SDK's default solution format). All targeted **.NET 8**
+because the Azure Functions Worker SDK only listed .NET 10 as Preview.
+
+**Since then** the solution also includes `Ordering.App` / `Ordering.Core`
+(Harmony stand-in), `StoreDevice.App` / `StoreDevice.Core` (in-store tablet),
+and `Gateway.Infrastructure.Tests`. Run `dotnet test Gateway.slnx` for a
+live test count (certification scenarios remain `[Fact(Skip=…)]`).
+
+Scaffold tree (2026-08-20):
 
 ```
 src/
@@ -19,7 +30,7 @@ src/
   Gateway.Adapters.OrderHarmony/   Inbound controllers (POST /orders, GET /menu, GET /health),
                                    outbound signed webhook sender, Bearer location-key auth
   Gateway.Adapters.Gaap/           GAAP HTTP client, DTOs, order/menu/health adapters,
-                                   status synthesizer (GAAP has no push feedback)
+                                   status synthesizer (Completed/Cancelled poll backstop only)
   Gateway.Adapters.Pilot/          Pilot HTTP client + JWT cache, DTOs, order/menu/health
                                    adapters, inbound status-callback controller
   Gateway.Infrastructure/          EF Core DbContext + migrations, repositories, Key Vault
@@ -41,11 +52,11 @@ Reference material already in the repo before this scaffold, used to shape
 the adapter DTOs: `docs/reference/gaap.swagger.json`,
 `docs/reference/pilot.swagger.json`.
 
-## 2. Build and test results
+## 2. Build and test results (scaffold day)
 
 - **Full solution build: 0 errors, 0 warnings.**
-- **30 real tests pass.** Domain (19), Application (4), GAAP adapter (3),
-  Pilot adapter (4).
+- **30 real tests passed** on that day (Domain / Application / GAAP / Pilot).
+  Do not treat this number as current — re-run `dotnet test Gateway.slnx`.
 - **14 Order Harmony certification scenarios exist as `[Fact(Skip=...)]`
   placeholders** (`Gateway.Api.CertificationTests`), each skip reason
   pointing at what's missing (sandbox credentials, a live test store). They
@@ -141,19 +152,16 @@ net10.0 and fail to restore on net8.0. Both are pinned to `8.0.11` in
 `Gateway.Infrastructure.csproj`. Worth remembering if adding more EF Core
 packages later.
 
-## 6. What's not done — needs things only Wyndham can get
+## 6. What was not done on scaffold day
 
-- **No Azure resources provisioned.** No Key Vault, Service Bus, Azure SQL,
-  App Services, or Entra app registrations exist yet. The code is written
-  so it runs locally without any of them configured (Key Vault/Service Bus
-  registrations in `InfrastructureServiceCollectionExtensions` are
-  conditional on config being present), but nothing has actually talked to
-  GAAP, Pilot, or Order Harmony's sandbox.
-- **No git repository.** `git init` was not run — this is still a plain
-  folder, not a repo, as of this scaffold. A `.gitignore` exists and is
-  ready for when that happens.
+- **No Azure resources provisioned** at that time. The code is written so it
+  runs locally without Key Vault / Service Bus configured. UAT App Service
+  and related resources may exist now — see deploy scripts and
+  `docs/LOCAL-DEV.md`.
+- **Git:** this repo is under git today. The scaffold note that “no git
+  repository” existed is obsolete.
 - **The 14 certification tests are placeholders**, not implementations —
-  see §2.
+  see §2. That part remains true.
 
 ## 7. How this maps back to the project plan
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.ItemPage"
+             Title="Item"
+             BackgroundColor="#F8FAFC">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label x:Name="TitleLabel" TextColor="#0F172A" FontSize="24" FontAttributes="Bold" />
+            <Label x:Name="PriceLabel" TextColor="#0F766E" FontSize="18" />
+            <Label x:Name="DescriptionLabel" TextColor="#64748B" FontSize="16" />
+
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="−" Clicked="OnMinus" BackgroundColor="#E2E8F0" TextColor="#0F172A" WidthRequest="52" HeightRequest="44" />
+                <Label x:Name="QuantityLabel" TextColor="#0F172A" FontSize="20" VerticalOptions="Center" />
+                <Button Text="+" Clicked="OnPlus" BackgroundColor="#E2E8F0" TextColor="#0F172A" WidthRequest="52" HeightRequest="44" />
+            </HorizontalStackLayout>
+
+            <VerticalStackLayout x:Name="GroupsStack" Spacing="16" />
+
+            <Label Text="Line notes" TextColor="#64748B" />
+            <Entry x:Name="NotesEntry" Placeholder="No onion, extra sauce…"
+                   TextColor="#0F172A" BackgroundColor="White" HeightRequest="52" />
+
+            <Button Text="Add to cart" Clicked="OnAddClicked"
+                    BackgroundColor="#0F766E" TextColor="White" FontAttributes="Bold"
+                    HeightRequest="52" CornerRadius="8" />
+            <Label x:Name="ErrorLabel" TextColor="#DC2626" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

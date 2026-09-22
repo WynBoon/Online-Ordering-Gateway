@@ -19,9 +19,9 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IDeviceSessionStore, SecureStorageSessionStore>();
         builder.Services.AddSingleton<OrderSelection>();
-        builder.Services.AddHttpClient<GatewayDeviceClient>();
+        builder.Services.AddGatewayDeviceClient();
+        builder.Services.AddSingleton<BoardViewModel>();
         builder.Services.AddTransient<OnboardingViewModel>();
-        builder.Services.AddTransient<BoardViewModel>();
         builder.Services.AddTransient<Pages.OnboardingPage>();
         builder.Services.AddTransient<Pages.BoardPage>();
         builder.Services.AddTransient<Pages.OrderPage>();

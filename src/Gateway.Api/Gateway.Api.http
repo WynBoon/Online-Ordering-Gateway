@@ -44,6 +44,14 @@ Content-Type: application/json
   }
 }
 
+### Channel — recent orders for this location key (Harmony stand-in poll)
+GET {{Gateway.Api_HostAddress}}/orders
+Authorization: Bearer {{LocationKey}}
+
+### Channel — one order's status ladder
+GET {{Gateway.Api_HostAddress}}/orders/OH-LOCAL-001
+Authorization: Bearer {{LocationKey}}
+
 ### Device — enroll with a 6-digit pairing code issued from the portal (shown once).
 ### Replace the code; do not commit a real device token.
 POST {{Gateway.Api_HostAddress}}/device/enroll

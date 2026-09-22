@@ -4,21 +4,25 @@ Who it's for: kitchen staff at a store that takes Order Harmony (Dine Direct) or
 
 Why it exists: GAAP Unity records a closed, paid sale and cannot send status back. Industry default is a tablet per store, the same shape as an Otter / Direct device. Functions are stipulated per store in the portal and **snapshotted onto each pairing code**. Changing the store default later does not widen an already-issued or already-paired device. Edit that row's checkboxes instead.
 
+The live board is the [MOOG tablet UI spec](in-store-device-ui.md): three columns New / Preparing / Ready, one primary action per ticket.
+
 ## Pairing
 
 1. In the portal, open the store → **In-store devices**.
 2. Tick the functions this kitchen is allowed to perform. **Save store default** if you want new codes to copy them.
-3. Name the device (default "Pass kitchen") → **Issue pairing code**.
-4. Enter the six-digit code on the tablet within 15 minutes. It is shown once; the portal stores only a hash.
+3. Name the device (default "Front") → **Issue pairing code**.
+4. Enter the six-digit code on the tablet within 15 minutes. It is shown once; the portal stores only a hash. On Pair the tablet shows **Pairing…** and then either **Paired with {store}** or the gateway’s error (invalid/expired code, timeout, no internet). Issue a **fresh** code for each attempt.
+
+On the Android emulator, use a cold-boot AVD with internet (Chrome in the emulator should load a website). Do not point the emulator proxy at `127.0.0.1`. Windows Machine on the same PC can pair even when the emulator cannot.
 5. The tablet receives a device token (also hashed at rest). Heartbeat, open orders, and actions use `Authorization: Bearer {token}` against the gateway API — not the portal.
 
-Revoke stops heartbeat, order list, and actions immediately (token hash cleared, status Revoked). Issue a new code to replace a lost tablet.
+Revoke stops heartbeat, order list, and actions immediately (token hash cleared, status Revoked). The portal hides revoked rows by default; turn on **Show revoked** to **Remove from list** (permanent). Issue a new code to replace a lost tablet.
 
 ## Buttons → Order Harmony status
 
 | Tablet button | Required function | Order Harmony status |
 |---|---|---|
-| Start preparing | Mark preparing | `preparing` |
+| Accept (New column) | Mark preparing | `preparing` |
 | Mark ready | Mark ready | `ready` (walks `accepted` → `preparing` → `ready` if needed, each step webhooked) |
 | Handed over | Mark completed | `completed` |
 | Running late +5 min | Adjust promise time | No extra status; bumps promise time 1–60 minutes |

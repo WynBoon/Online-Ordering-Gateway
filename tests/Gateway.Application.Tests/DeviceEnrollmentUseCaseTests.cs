@@ -126,4 +126,49 @@ public class DeviceEnrollmentUseCaseTests
         Assert.Null(pending.EnrollmentCodeHash);
         deviceRepo.Verify(r => r.SaveAsync(pending, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Remove_deletes_revoked_device()
+    {
+        var device = new StoreDevice
+        {
+            Id = Guid.NewGuid(),
+            StoreId = Guid.NewGuid(),
+            Name = "Old tablet",
+            Status = DeviceStatus.Revoked,
+            RevokedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        var deviceRepo = new Mock<IStoreDeviceRepository>();
+        deviceRepo.Setup(r => r.GetByIdAsync(device.Id, It.IsAny<CancellationToken>())).ReturnsAsync(device);
+        deviceRepo.Setup(r => r.DeleteAsync(device, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var useCase = new DeviceEnrollmentUseCase(deviceRepo.Object, Mock.Of<IStoreRepository>());
+        await useCase.RemoveAsync(device.Id, CancellationToken.None);
+
+        deviceRepo.Verify(r => r.DeleteAsync(device, It.IsAny<CancellationToken>()), Times.Once);
+        deviceRepo.Verify(r => r.SaveAsync(It.IsAny<StoreDevice>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Remove_throws_if_device_is_not_revoked()
+    {
+        var device = new StoreDevice
+        {
+            Id = Guid.NewGuid(),
+            StoreId = Guid.NewGuid(),
+            Name = "Live tablet",
+            Status = DeviceStatus.Active
+        };
+
+        var deviceRepo = new Mock<IStoreDeviceRepository>();
+        deviceRepo.Setup(r => r.GetByIdAsync(device.Id, It.IsAny<CancellationToken>())).ReturnsAsync(device);
+
+        var useCase = new DeviceEnrollmentUseCase(deviceRepo.Object, Mock.Of<IStoreRepository>());
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => useCase.RemoveAsync(device.Id, CancellationToken.None));
+
+        Assert.Contains("Revoke", ex.Message, StringComparison.OrdinalIgnoreCase);
+        deviceRepo.Verify(r => r.DeleteAsync(It.IsAny<StoreDevice>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

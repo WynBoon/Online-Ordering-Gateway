@@ -1,4 +1,3 @@
-using Gateway.Domain.Devices;
 using Microsoft.Extensions.DependencyInjection;
 using StoreDevice.Client;
 using StoreDevice.ViewModels;
@@ -9,6 +8,9 @@ public partial class BoardPage : ContentPage
 {
     private readonly BoardViewModel _vm;
     private readonly OrderSelection _selection;
+    private IDispatcherTimer? _tick;
+    private IDispatcherTimer? _poll;
+    private IDispatcherTimer? _snack;
 
     public BoardPage()
         : this(Resolve<BoardViewModel>(), Resolve<OrderSelection>())
@@ -26,26 +28,56 @@ public partial class BoardPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await LoadBoardAsync();
+        _vm.OpenDetails += OnOpenDetailsAsync;
+        await LoadBoardAsync(showBusy: true);
+        StartTimers();
     }
 
-    private async Task LoadBoardAsync()
+    protected override void OnDisappearing()
     {
-        await _vm.LoadAsync();
+        _vm.OpenDetails -= OnOpenDetailsAsync;
+        StopTimers();
+        base.OnDisappearing();
+    }
+
+    private void StartTimers()
+    {
+        _tick ??= Dispatcher.CreateTimer();
+        _tick.Interval = TimeSpan.FromSeconds(1);
+        _tick.Tick -= OnTick;
+        _tick.Tick += OnTick;
+        _tick.Start();
+
+        _poll ??= Dispatcher.CreateTimer();
+        _poll.Interval = TimeSpan.FromSeconds(5);
+        _poll.Tick -= OnPoll;
+        _poll.Tick += OnPoll;
+        _poll.Start();
+    }
+
+    private void StopTimers()
+    {
+        _tick?.Stop();
+        _poll?.Stop();
+        _snack?.Stop();
+    }
+
+    private void OnTick(object? sender, EventArgs e) => _vm.Tick(DateTimeOffset.UtcNow);
+
+    private async void OnPoll(object? sender, EventArgs e) =>
+        await LoadBoardAsync(showBusy: false);
+
+    private async Task LoadBoardAsync(bool showBusy)
+    {
+        await _vm.LoadAsync(CancellationToken.None, showBusy);
         if (_vm.Session is null)
         {
             await Shell.Current.GoToAsync("//onboarding");
-            return;
         }
-
-        StoreLabel.Text = _vm.StoreName;
-        FunctionsLabel.Text = string.Join(" · ", GrantedTitles(_vm.Functions));
-        ErrorLabel.Text = _vm.Error ?? "";
-        OrdersView.ItemsSource = _vm.Orders;
-        OrdersView.SelectedItem = null;
     }
 
-    private async void OnRefreshClicked(object? sender, EventArgs e) => await LoadBoardAsync();
+    private async void OnRefreshClicked(object? sender, EventArgs e) =>
+        await LoadBoardAsync(showBusy: true);
 
     private async void OnUnpairClicked(object? sender, EventArgs e)
     {
@@ -53,21 +85,16 @@ public partial class BoardPage : ContentPage
         await Shell.Current.GoToAsync("//onboarding");
     }
 
-    private async void OnOrderSelected(object? sender, SelectionChangedEventArgs e)
+    private Task OnOpenDetailsAsync(TicketViewModel ticket)
     {
-        if (e.CurrentSelection.FirstOrDefault() is not DeviceOrderDto order)
-        {
-            return;
-        }
-
-        _selection.Current = order;
-        await Shell.Current.GoToAsync("order");
+        _selection.Current = ticket.Order;
+        return MainThread.InvokeOnMainThreadAsync(() => Shell.Current.GoToAsync("order"));
     }
 
-    private static IEnumerable<string> GrantedTitles(DeviceFunction functions) =>
-        DeviceFunctionCatalog.All.Where(d => functions.HasFlag(d.Flag)).Select(d => d.Title);
-
-    private static T Resolve<T>() where T : notnull =>
-        IPlatformApplication.Current?.Services.GetRequiredService<T>()
-        ?? throw new InvalidOperationException($"Service {typeof(T).Name} is not registered.");
+    private static T Resolve<T>() where T : notnull
+    {
+        var services = IPlatformApplication.Current?.Services
+            ?? throw new InvalidOperationException($"Service {typeof(T).Name} is not registered.");
+        return services.GetRequiredService<T>();
+    }
 }

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.ConnectPage"
+             Title="Connect"
+             BackgroundColor="#F8FAFC">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="12">
+            <Label Text="Order Harmony stand-in"
+                   TextColor="#0F766E"
+                   FontSize="28"
+                   FontAttributes="Bold" />
+            <Label Text="This app pretends to be Order Harmony: pull the till menu, place a prepaid order, then watch status come back. Kitchen taps still happen on Store Device."
+                   TextColor="#64748B"
+                   FontSize="16" />
+
+            <Label Text="Gateway URL" TextColor="#64748B" />
+            <Entry Text="{Binding GatewayBaseUrl}"
+                   Keyboard="Url"
+                   TextColor="#0F172A"
+                   BackgroundColor="White"
+                   HeightRequest="52" />
+
+            <Label Text="Location key" TextColor="#64748B" />
+            <Entry Text="{Binding LocationKey}"
+                   Placeholder="Paste the UAT store location key from the portal"
+                   PlaceholderColor="#94A3B8"
+                   TextColor="#0F172A"
+                   BackgroundColor="White"
+                   HeightRequest="52" />
+
+            <Button Text="Connect"
+                    Clicked="OnConnectClicked"
+                    BackgroundColor="#0F766E"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    HeightRequest="52"
+                    CornerRadius="8" />
+
+            <Label x:Name="HealthLabel" Text="{Binding Health}" TextColor="#059669" FontSize="16" />
+            <Label Text="{Binding Error}" TextColor="#DC2626" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -11,5 +11,10 @@ public class MainApplication : MauiApplication
 	{
 	}
 
-	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+	protected override MauiApp CreateMauiApp()
+	{
+		Java.Lang.JavaSystem.SetProperty("java.net.preferIPv4Stack", "true");
+		Java.Lang.JavaSystem.SetProperty("java.net.preferIPv6Addresses", "false");
+		return MauiProgram.CreateMauiApp();
+	}
 }

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.CartPage"
+             Title="Cart"
+             BackgroundColor="#F8FAFC">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label Text="Already paid (test)" TextColor="#0F766E" FontAttributes="Bold" FontSize="14" />
+            <Label Text="Channel orders are prepaid. The till must not take payment."
+                   TextColor="#64748B" FontSize="14" />
+
+            <CollectionView x:Name="LinesView" HeightRequest="220">
+                <CollectionView.EmptyView>
+                    <Label Text="Cart is empty. Pick items from the menu." TextColor="#64748B" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="8" ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label TextColor="#0F172A" FontSize="16" FontAttributes="Bold">
+                                    <Label.Text>
+                                        <MultiBinding StringFormat="{}{0} × {1}">
+                                            <Binding Path="Quantity" />
+                                            <Binding Path="Name" />
+                                        </MultiBinding>
+                                    </Label.Text>
+                                </Label>
+                                <Label Text="{Binding Notes}" TextColor="#64748B" FontSize="13" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Remove" Clicked="OnRemoveClicked"
+                                    BackgroundColor="#FEE2E2" TextColor="#DC2626" HeightRequest="40" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Label x:Name="TotalsLabel" TextColor="#0F172A" FontSize="18" FontAttributes="Bold" />
+
+            <Label Text="Fulfillment" TextColor="#64748B" />
+            <Picker x:Name="FulfillmentPicker" Title="Fulfillment"
+                    SelectedIndexChanged="OnFulfillmentChanged"
+                    TextColor="#0F172A" BackgroundColor="White" />
+
+            <VerticalStackLayout x:Name="DeliveryBlock" IsVisible="False" Spacing="8">
+                <Label Text="Delivery address" TextColor="#64748B" />
+                <Entry x:Name="AddressEntry" Placeholder="Street and number"
+                       TextColor="#0F172A" BackgroundColor="White" HeightRequest="52" />
+            </VerticalStackLayout>
+
+            <Label Text="Your name" TextColor="#64748B" />
+            <Entry x:Name="NameEntry" TextColor="#0F172A" BackgroundColor="White" HeightRequest="52" />
+            <Label Text="Phone" TextColor="#64748B" />
+            <Entry x:Name="PhoneEntry" Keyboard="Telephone" TextColor="#0F172A" BackgroundColor="White" HeightRequest="52" />
+            <Label Text="Order notes" TextColor="#64748B" />
+            <Entry x:Name="NotesEntry" TextColor="#0F172A" BackgroundColor="White" HeightRequest="52" />
+
+            <Button Text="Place order" Clicked="OnPlaceClicked"
+                    BackgroundColor="#0F766E" TextColor="White" FontAttributes="Bold"
+                    HeightRequest="52" CornerRadius="8" />
+            <Label x:Name="ErrorLabel" TextColor="#DC2626" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

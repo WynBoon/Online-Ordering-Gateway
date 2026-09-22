@@ -23,6 +23,7 @@ public sealed class ErrorEnvelope
         public const string Unauthorized = "unauthorized";
         public const string UnknownPlu = "unknown_plu";
         public const string UnknownLocation = "unknown_location";
+        public const string UnknownOrder = "unknown_order";
         public const string DuplicateOrder = "duplicate_order";
         public const string StoreClosed = "store_closed";
         public const string ModifierRuleViolation = "modifier_rule_violation";

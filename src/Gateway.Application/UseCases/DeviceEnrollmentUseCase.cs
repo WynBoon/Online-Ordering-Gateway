@@ -112,6 +112,18 @@ public sealed class DeviceEnrollmentUseCase(
         await devices.SaveAsync(device, ct);
     }
 
+    public async Task RemoveAsync(Guid deviceId, CancellationToken ct)
+    {
+        var device = await devices.GetByIdAsync(deviceId, ct)
+            ?? throw new InvalidOperationException("Device not found.");
+        if (device.Status != DeviceStatus.Revoked)
+        {
+            throw new InvalidOperationException("Revoke the device before removing it from the list.");
+        }
+
+        await devices.DeleteAsync(device, ct);
+    }
+
     public async Task HeartbeatAsync(Guid deviceId, CancellationToken ct)
     {
         var device = await devices.GetByIdAsync(deviceId, ct)

@@ -1,4 +1,3 @@
-using Gateway.Domain.Devices;
 using Gateway.Domain.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using StoreDevice.Client;
@@ -10,6 +9,7 @@ public partial class OrderPage : ContentPage
 {
     private readonly BoardViewModel _vm;
     private readonly OrderSelection _selection;
+    private TicketViewModel? _ticket;
 
     public OrderPage()
         : this(Resolve<BoardViewModel>(), Resolve<OrderSelection>())
@@ -26,7 +26,7 @@ public partial class OrderPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _vm.LoadAsync();
+        await _vm.LoadAsync(CancellationToken.None, showBusy: false);
         var order = _selection.Current;
         if (order is null)
         {
@@ -34,48 +34,86 @@ public partial class OrderPage : ContentPage
             return;
         }
 
-        TitleLabel.Text = $"#{order.DisplayId}  {order.Status}";
-        MetaLabel.Text = $"{order.CustomerName} · {order.Fulfillment} · {order.SourceChannel}";
-        NotesLabel.IsVisible = !string.IsNullOrWhiteSpace(order.Notes);
-        NotesLabel.Text = order.Notes ?? "";
-
-        LinesStack.Children.Clear();
-        foreach (var item in order.Items)
-        {
-            var modifiers = item.Modifiers.Count == 0 ? "" : $" ({string.Join(", ", item.Modifiers)})";
-            LinesStack.Children.Add(new Label
-            {
-                Text = $"{item.Quantity} × {item.Name}{modifiers}",
-                TextColor = Colors.White,
-                FontSize = 18
-            });
-            if (!string.IsNullOrWhiteSpace(item.Notes))
-            {
-                LinesStack.Children.Add(new Label
-                {
-                    Text = item.Notes,
-                    TextColor = Color.FromArgb("#F59E0B"),
-                    FontSize = 14
-                });
-            }
-        }
-
-        PreparingButton.IsVisible = _vm.Can(DeviceFunction.MarkPreparing);
-        ReadyButton.IsVisible = _vm.Can(DeviceFunction.MarkReady);
-        CompletedButton.IsVisible = _vm.Can(DeviceFunction.MarkCompleted);
-        DelayButton.IsVisible = _vm.Can(DeviceFunction.AdjustPromiseTime);
-        CancelButton.IsVisible = _vm.Can(DeviceFunction.CancelOrder);
+        _ticket = new TicketViewModel(order, _vm.Functions, _ => Task.CompletedTask, _ => Task.CompletedTask);
+        BindTicket(_ticket);
         ErrorLabel.Text = "";
     }
 
-    private async void OnPreparing(object? sender, EventArgs e) =>
-        await RunAsync(order => _vm.MarkPreparingAsync(order.OrderRef));
+    private void BindTicket(TicketViewModel ticket)
+    {
+        NumberLabel.Text = $"#{ticket.DisplayNumber}";
+        IdentityLabel.Text = $"{ticket.Identity} · {ticket.Order.SourceChannel}";
+        FulfillmentLabel.Text = ticket.FulfillmentLabel;
+        TimerLabel.Text = ticket.TimerText;
+        SyncLabel.Text = ticket.SyncText;
+        NoteBox.IsVisible = ticket.HasNote;
+        NotesLabel.Text = ticket.Order.Notes ?? "";
 
-    private async void OnReady(object? sender, EventArgs e) =>
-        await RunAsync(order => _vm.MarkReadyAsync(order.OrderRef));
+        LinesStack.Children.Clear();
+        foreach (var item in ticket.Order.Items)
+        {
+            var line = new TicketLine(
+                item.Quantity.ToString(),
+                item.Name,
+                item.Modifiers.Count == 0 ? null : string.Join("  ", item.Modifiers.Select(m => "+ " + m)),
+                item.Notes,
+                item.Modifiers.Count > 0,
+                !string.IsNullOrWhiteSpace(item.Notes));
 
-    private async void OnCompleted(object? sender, EventArgs e) =>
-        await RunAsync(order => _vm.MarkCompletedAsync(order.OrderRef));
+            var grid = new Grid
+            {
+                ColumnDefinitions =
+                [
+                    new ColumnDefinition(new GridLength(44)),
+                    new ColumnDefinition(GridLength.Star)
+                ]
+            };
+            grid.Add(new Label
+            {
+                Text = line.Quantity,
+                TextColor = Color.FromArgb("#F3F6FA"),
+                FontSize = 22,
+                FontFamily = "OpenSansSemibold"
+            }, 0, 0);
+            grid.Add(BuildLineBody(line), 1, 0);
+            LinesStack.Children.Add(grid);
+        }
+
+        PrimaryButton.Text = ticket.PrimaryText;
+        PrimaryButton.BackgroundColor = Color.FromArgb(ticket.PrimaryColor);
+        PrimaryButton.IsVisible = ticket.CanPrimary;
+        DelayButton.IsVisible = _vm.Can(Gateway.Domain.Devices.DeviceFunction.AdjustPromiseTime);
+        CancelButton.IsVisible = _vm.Can(Gateway.Domain.Devices.DeviceFunction.CancelOrder);
+    }
+
+    private static VerticalStackLayout BuildLineBody(TicketLine line)
+    {
+        var stack = new VerticalStackLayout();
+        stack.Children.Add(new Label { Text = line.Name, TextColor = Color.FromArgb("#F3F6FA"), FontSize = 20 });
+        if (line.HasModifiers)
+        {
+            stack.Children.Add(new Label { Text = line.Modifiers, TextColor = Color.FromArgb("#B39DFF"), FontSize = 16 });
+        }
+
+        if (line.HasNotes)
+        {
+            stack.Children.Add(new Label { Text = line.Notes, TextColor = Color.FromArgb("#FFB454"), FontSize = 16 });
+        }
+
+        return stack;
+    }
+
+    private async void OnBack(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
+
+    private async void OnPrimary(object? sender, EventArgs e)
+    {
+        if (_ticket is null)
+        {
+            return;
+        }
+
+        await RunAsync(() => _vm.RunPrimaryAsync(_ticket));
+    }
 
     private async void OnDelay(object? sender, EventArgs e) =>
         await RunAsync(order => _vm.DelayAsync(order.OrderRef, 5));
@@ -103,7 +141,24 @@ public partial class OrderPage : ContentPage
         }
     }
 
-    private static T Resolve<T>() where T : notnull =>
-        IPlatformApplication.Current?.Services.GetRequiredService<T>()
-        ?? throw new InvalidOperationException($"Service {typeof(T).Name} is not registered.");
+    private async Task RunAsync(Func<Task> action)
+    {
+        try
+        {
+            ErrorLabel.Text = "";
+            await action();
+            await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex)
+        {
+            ErrorLabel.Text = ex.Message;
+        }
+    }
+
+    private static T Resolve<T>() where T : notnull
+    {
+        var services = IPlatformApplication.Current?.Services
+            ?? throw new InvalidOperationException($"Service {typeof(T).Name} is not registered.");
+        return services.GetRequiredService<T>();
+    }
 }

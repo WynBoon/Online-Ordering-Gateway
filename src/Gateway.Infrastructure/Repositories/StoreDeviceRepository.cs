@@ -35,4 +35,10 @@ public sealed class StoreDeviceRepository(GatewayDbContext db) : IStoreDeviceRep
         db.StoreDevices.Update(device);
         await db.SaveChangesAsync(ct);
     }
+
+    public async Task DeleteAsync(StoreDevice device, CancellationToken ct)
+    {
+        db.StoreDevices.Remove(device);
+        await db.SaveChangesAsync(ct);
+    }
 }

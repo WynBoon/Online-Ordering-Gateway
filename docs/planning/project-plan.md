@@ -22,6 +22,14 @@ The named POC customer (restaurant site) is **still to be decided** — flagged
 everywhere below as `[POC site — TBD]`. Fill this in once chosen; it doesn't
 block starting Phase 0–3.
 
+### As-built note (docs hygiene)
+
+Phases below remain the original plan language. Much of Phase 0–2 is already
+in the repo (channel API, Pilot/GAAP adapters, portal, worker, Store Device,
+Ordering.App). Treat exit criteria and open items as the remaining bar, not
+as “nothing built yet.” Current runbooks: `docs/LOCAL-DEV.md` and
+`docs/user-manuals/`.
+
 ---
 
 ## Phase 0 — Foundations
@@ -32,10 +40,12 @@ block starting Phase 0–3.
   `Gateway.Adapters.*`, `Gateway.Infrastructure`, `Gateway.Api`,
   `Gateway.Worker`.
 - Canonical domain model + the five-state order status state machine.
-- Core schema: `Merchant`, `Location`, `PosBinding`, `ProductMapping`,
-  `Order`, `OrderEvent`, `IdempotencyRecord`.
-- Azure skeleton: Container Apps, Key Vault, database, Service Bus, CI/CD
-  pipeline, dev environment.
+- Core schema (as built): `Store`, `ChannelConnection`, `PosConnection`,
+  `Order`, `OrderEvent`, `IdempotencyRecord` (and related). Product IDs are
+  **passthrough PLUs** — there is no `ProductMapping` table.
+- Azure skeleton: App Service (API + Portal) + Worker (Functions), Key Vault,
+  database, Service Bus, CI/CD pipeline, dev environment. (Earlier drafts
+  said Container Apps; hosts are App Service / Functions per `ARCHITECTURE.md`.)
 
 **Exit criteria:** solution builds and deploys to an Azure dev environment;
 a trivial end-to-end health check passes; schema is migrated and seedable.
@@ -103,8 +113,9 @@ time will likely exceed engineering effort here — this phase is about
 watching real traffic, not building).
 
 - Onboard one real, low-risk restaurant site running Pilot: issue its Order
-  Harmony location key, configure its `PosBinding` and `ProductMapping` for
-  real.
+  Harmony location key, configure `ChannelConnection` + `PosConnection`
+  (portal POS key / token probe). Menu PLUs pass through — no product
+  mapping table.
 - Run limited live order volume under close supervision.
 - Track success metrics, defined now so there's no ambiguity at review time:
   - Order accuracy — zero lost or mismatched orders.
@@ -126,8 +137,9 @@ Mirrors Phases 1–4, scoped to GAAP only:
 
 - **GAAP adapter build** (~2 weeks, faster than Pilot's since the domain
   model, state machine, and Order Harmony channel are already built) —
-  includes the GAAP status-synthesizer described in the architecture doc,
-  since GAAP won't push status back to us the way Pilot does.
+  includes the GAAP Completed/Cancelled poll backstop (`GaapStatusSynthesizer`)
+  and the in-store device as status of record for preparing / ready, since
+  GAAP won't push kitchen status the way a Pilot callback can.
 - **GAAP integration test** against the same certification checklist.
 - **GAAP POC** on a GAAP-running site (same site as Phase 4 if it happens to
   run GAAP too, otherwise a separate `[POC site — TBD]`).

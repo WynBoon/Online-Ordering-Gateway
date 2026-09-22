@@ -9,10 +9,13 @@ namespace Gateway.Adapters.Pilot;
 /// Reshapes Pilot's <c>GET /SalesProducts/Menu</c> PluItems into the category tree
 /// Order Harmony expects. PLU values pass through unchanged (ARCHITECTURE.md §7).
 /// Option groups are published without min/max — Pilot's spec does not expose those
-/// rules (ARCHITECTURE.md §10).
+/// rules (ARCHITECTURE.md §10). Top-level <c>Dtab = MODIFY</c> rows are Pilot's
+/// modifier catalogue, not sellable products — they are excluded from the channel menu.
 /// </summary>
 public sealed class PilotMenuAdapter(PilotApiClient client) : IPosMenuAdapter
 {
+    private const string ModifyDtab = "MODIFY";
+
     public async Task<CanonicalMenu> GetMenuAsync(PosConnection connection, CancellationToken ct)
     {
         var response = await client.GetMenuAsync(connection, ct);
@@ -23,6 +26,7 @@ public sealed class PilotMenuAdapter(PilotApiClient client) : IPosMenuAdapter
 
         var categories = (response.PluItems ?? [])
             .Where(p => !string.IsNullOrWhiteSpace(p.Plu))
+            .Where(p => !string.Equals(p.Dtab, ModifyDtab, StringComparison.OrdinalIgnoreCase))
             .GroupBy(p => string.IsNullOrWhiteSpace(p.Dtab) ? "Uncategorised" : p.Dtab)
             .Select(g => new MenuCategory
             {

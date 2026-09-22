@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.LabPage"
+             Title="Lab"
+             BackgroundColor="#F8FAFC">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label Text="Certification helpers"
+                   TextColor="#0F172A" FontSize="24" FontAttributes="Bold" />
+            <Label Text="These call the Channel API the same way Order Harmony would. Hide this flyout item before a diner-facing build."
+                   TextColor="#64748B" FontSize="15" />
+
+            <Button Text="Replay last Idempotency-Key" Clicked="OnReplay"
+                    BackgroundColor="#0F766E" TextColor="White" HeightRequest="48" />
+            <Button Text="Unknown PLU" Clicked="OnUnknownPlu"
+                    BackgroundColor="#0F766E" TextColor="White" HeightRequest="48" />
+            <Button Text="Paused store key" Clicked="OnPaused"
+                    BackgroundColor="#0F766E" TextColor="White" HeightRequest="48" />
+
+            <Label x:Name="ResultLabel" TextColor="#0F172A" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

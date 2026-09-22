@@ -114,7 +114,9 @@ frontend/portal decisions get made. Starting point, not a finished design.
   ChannelConnection → configure PosConnection → set BillingPlan → test
   connection → activate.
 - Store drill-down — click a store on the command centre grid or list to
-  see its recent order timeline.
+  see its recent order timeline, POS connection card (Pilot key + token
+  probe), channel settings, and **In-store devices** (pairing codes /
+  revoke).
 - Order drill-down — one order's full trace (inbound payload → adapter
   call → outbound webhook), matching the Application Insights distributed
   trace by `order_ref`.
@@ -125,6 +127,10 @@ frontend/portal decisions get made. Starting point, not a finished design.
   `GatewayViewer` roles for now per §13, revisit if per-store/per-group
   scoped visibility is ever needed (e.g. a franchise Group owner who
   should only see their own stores).
+
+Tablet and Harmony stand-in clients (`StoreDevice.App`, `Ordering.App`) are
+not portal pages — they call `Gateway.Api` directly; see
+`docs/user-manuals/`.
 
 **Scope for the Pilot POC (Phase 4) specifically:** the command centre and
 onboarding wizard are the hard requirements to get a real store through

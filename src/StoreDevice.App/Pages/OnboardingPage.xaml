@@ -2,56 +2,76 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="StoreDevice.App.Pages.OnboardingPage"
-             BackgroundColor="#1C1917">
+             BackgroundColor="#0B0F14">
     <ScrollView>
-        <VerticalStackLayout Padding="24" Spacing="16">
-            <Label Text="Store device"
-                   TextColor="#F59E0B"
-                   FontSize="28"
-                   FontAttributes="Bold" />
-            <Label Text="This tablet reports preparing / ready / completed to the gateway and Order Harmony. The till still gets the kitchen ticket."
-                   TextColor="#A8A29E"
+        <VerticalStackLayout Padding="32" Spacing="16" MaximumWidthRequest="560" HorizontalOptions="Center">
+            <Label Text="MOOG"
+                   TextColor="#8593A3"
+                   FontSize="14"
+                   CharacterSpacing="4"
+                   FontFamily="OpenSansSemibold" />
+            <Label Text="Pair this tablet"
+                   TextColor="#F3F6FA"
+                   FontSize="32"
+                   FontFamily="OpenSansSemibold" />
+            <Label Text="Status of record for online orders. The till still prints the kitchen ticket — this device never prints."
+                   TextColor="#B4BFCC"
                    FontSize="16" />
 
-            <Label Text="Gateway URL" TextColor="#A8A29E" />
+            <Label Text="Gateway URL" TextColor="#8593A3" Margin="0,8,0,0" />
             <Entry x:Name="UrlEntry"
                    Text="{Binding GatewayBaseUrl}"
                    Keyboard="Url"
-                   TextColor="White"
-                   BackgroundColor="#292524"
-                   HeightRequest="52" />
+                   TextColor="#F3F6FA"
+                   BackgroundColor="#1A222C"
+                   HeightRequest="56" />
 
-            <Label Text="Pairing code" TextColor="#A8A29E" />
+            <Label Text="Pairing code" TextColor="#8593A3" />
             <Entry x:Name="CodeEntry"
                    Text="{Binding EnrollmentCode}"
                    Keyboard="Numeric"
                    MaxLength="6"
                    Placeholder="000000"
-                   PlaceholderColor="#78716C"
-                   TextColor="White"
-                   BackgroundColor="#292524"
-                   HeightRequest="52"
-                   FontSize="24"
+                   PlaceholderColor="#8593A3"
+                   TextColor="#F3F6FA"
+                   BackgroundColor="#1A222C"
+                   HeightRequest="64"
+                   FontSize="28"
+                   FontFamily="OpenSansSemibold"
                    CharacterSpacing="8" />
 
-            <Label Text="Device name" TextColor="#A8A29E" />
+            <Label Text="Station name" TextColor="#8593A3" />
             <Entry Text="{Binding DeviceName}"
-                   TextColor="White"
-                   BackgroundColor="#292524"
-                   HeightRequest="52" />
+                   TextColor="#F3F6FA"
+                   BackgroundColor="#1A222C"
+                   HeightRequest="56" />
 
-            <Button Text="Pair this tablet"
+            <Button Text="{Binding PairButtonText}"
                     Clicked="OnPairClicked"
-                    BackgroundColor="#F59E0B"
-                    TextColor="#1C1917"
+                    IsEnabled="{Binding CanPair}"
+                    BackgroundColor="#5AA9FF"
+                    TextColor="#06121F"
                     FontAttributes="Bold"
-                    HeightRequest="56"
-                    CornerRadius="8" />
+                    FontSize="18"
+                    HeightRequest="64"
+                    CornerRadius="14" />
+
+            <HorizontalStackLayout Spacing="12" IsVisible="{Binding Busy}">
+                <ActivityIndicator IsRunning="True" Color="#5AA9FF" WidthRequest="28" HeightRequest="28" />
+                <Label Text="Waiting for the gateway…"
+                       TextColor="#5AA9FF"
+                       FontSize="16"
+                       VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <Label Text="{Binding Status}"
+                   TextColor="#B4BFCC"
+                   FontSize="16" />
 
             <Label x:Name="ErrorLabel"
                    Text="{Binding Error}"
-                   TextColor="#EF4444"
-                   FontSize="16" />
+                   TextColor="#FF6B6B"
+                   FontSize="15" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

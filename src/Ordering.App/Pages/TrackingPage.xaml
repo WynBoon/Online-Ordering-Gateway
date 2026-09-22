@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.TrackingPage"
+             Title="Order status"
+             BackgroundColor="#F8FAFC">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label x:Name="HeadlineLabel" TextColor="#0F172A" FontSize="24" FontAttributes="Bold" />
+            <Label x:Name="StatusLabel" TextColor="#0F766E" FontSize="20" FontAttributes="Bold" />
+            <Label x:Name="LadderLabel" TextColor="#64748B" FontSize="16" />
+            <Label x:Name="MetaLabel" TextColor="#64748B" FontSize="14" />
+            <VerticalStackLayout x:Name="ItemsStack" Spacing="4" />
+            <VerticalStackLayout x:Name="EventsStack" Spacing="4" />
+            <Label x:Name="HintLabel" Text="Kitchen status is walked on Store Device. This screen polls GET /orders/{order_ref} after the API is deployed with that endpoint."
+                   TextColor="#94A3B8" FontSize="13" />
+            <Label x:Name="ErrorLabel" TextColor="#DC2626" FontSize="16" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

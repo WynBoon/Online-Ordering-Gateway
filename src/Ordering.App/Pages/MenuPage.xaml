@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Ordering.App.Pages.MenuPage"
+             Title="Menu"
+             BackgroundColor="#F8FAFC">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="0,12,0,0" RowSpacing="8">
+        <VerticalStackLayout Padding="16,0" Spacing="8">
+            <HorizontalStackLayout Spacing="12">
+                <Button Text="Refresh" Clicked="OnRefreshClicked"
+                        BackgroundColor="#0F766E" TextColor="White" HeightRequest="40" />
+                <Button Text="Disconnect" Clicked="OnDisconnectClicked"
+                        BackgroundColor="#E2E8F0" TextColor="#0F766E" HeightRequest="40" />
+            </HorizontalStackLayout>
+            <Label x:Name="ErrorLabel" TextColor="#DC2626" FontSize="14" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalScrollBarVisibility="Never"
+                    HeightRequest="44"
+                    Padding="16,0">
+            <HorizontalStackLayout x:Name="CategoryBar" Spacing="8" VerticalOptions="Center" />
+        </ScrollView>
+
+        <RefreshView Grid.Row="2" Padding="16,4,16,16" Refreshing="OnRefreshing">
+            <CollectionView x:Name="ProductsView" SelectionMode="Single" SelectionChanged="OnProductSelected">
+                <CollectionView.EmptyView>
+                    <Label Text="Pick a category to see items."
+                           TextColor="#64748B"
+                           FontSize="16"
+                           Margin="8" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="12" Margin="0,0,0,8" BackgroundColor="White" ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Product.Name}" TextColor="#0F172A" FontSize="18" FontAttributes="Bold" />
+                                <Label Text="{Binding Product.Description}" TextColor="#64748B" FontSize="14" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding PriceLabel}" TextColor="#0F766E" FontSize="16" VerticalOptions="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

@@ -25,8 +25,11 @@ public sealed class OrdersController(
     MenuSyncUseCase menuSync,
     HealthCheckUseCase healthCheck,
     IIdempotencyStore idempotencyStore,
+    IOrderRepository orderRepository,
     ILogger<OrdersController> logger) : ControllerBase
 {
+    private const int RecentOrderTake = 50;
+
     private Guid CurrentStoreId => Guid.Parse(User.FindFirst(LocationKeyAuthenticationDefaults.StoreIdClaimType)!.Value);
 
     [HttpPost("orders")]
@@ -108,6 +111,39 @@ public sealed class OrdersController(
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// Recent orders for the store resolved from the Bearer location key.
+    /// Harmony-stand-in poll; not part of the Order Harmony partner spec.
+    /// </summary>
+    [HttpGet("orders")]
+    public async Task<IActionResult> ListOrdersAsync(CancellationToken ct)
+    {
+        var orders = await orderRepository.GetRecentOrdersByStoreAsync(CurrentStoreId, RecentOrderTake, ct);
+        var body = orders.Select(o => ChannelOrderMapper.ToDto(o)).ToList();
+        return Ok(body);
+    }
+
+    /// <summary>
+    /// Current status + status events for one order. 404 if missing or not this store.
+    /// </summary>
+    [HttpGet("orders/{orderRef}")]
+    public async Task<IActionResult> GetOrderAsync(string orderRef, CancellationToken ct)
+    {
+        var order = await orderRepository.GetByOrderRefAsync(orderRef, ct);
+        if (order is null || order.StoreId != CurrentStoreId)
+        {
+            return NotFound(new ErrorEnvelope
+            {
+                Code = ErrorEnvelope.Codes.UnknownOrder,
+                Message = "Order not found.",
+                Retryable = false
+            });
+        }
+
+        var events = await orderRepository.GetEventsByOrderRefAsync(order.OrderRef, ct);
+        return Ok(ChannelOrderMapper.ToDto(order, events));
     }
 
     [HttpGet("menu")]

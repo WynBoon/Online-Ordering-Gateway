@@ -159,8 +159,9 @@ the Completed/Cancelled backstop only.
 ## 6. Idempotency & retries
 
 - **Inbound** (Order Harmony → us): dedupe on `Idempotency-Key`, minimum 24h
-  window, replay the original `200`/`201` response verbatim rather than
-  re-processing. Order Harmony retries up to 5 times over ~5 minutes on
+  window. Only **successful 2xx** responses are cached and replayed verbatim;
+  a prior failure for the same key is dropped so a corrected retry can
+  re-execute. Order Harmony retries up to 5 times over ~5 minutes on
   retryable failures, then flags for operator attention and may auto-pause
   the location — so our `retryable: true/false` classification on every error
   response matters operationally, not just semantically.
@@ -363,8 +364,10 @@ each POS integration, not an afterthought.
 
 **With GAAP:**
 1. Is a real-time order/kitchen status channel available anywhere in their
-   platform, or is this Data-API genuinely the only injection path? (Drives
-   whether §5's synthetic-status approach is a permanent design or a stopgap.)
+   platform, or is this Data-API genuinely the only injection path? (§5 already
+   decided: in-store device as status of record; `GaapStatusSynthesizer` is
+   Completed/Cancelled poll backstop only — not a timer-faked preparing/ready
+   curve. A real GAAP kitchen feed would still be welcome.)
 2. What are production rate limits / pagination limits — sandbox caps
    `limit` at 5 "for tryout purposes."
 3. How do we obtain and keep in sync: `nodeId`, `locationId`, `employeeId`
